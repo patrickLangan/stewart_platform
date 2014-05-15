@@ -38,7 +38,7 @@ endef
 define loosen
 	gcc -c loosen/loosen.c -o loosen/loosen.o
 	gcc loosen/loosen.o -L/user/lib -lm -lprussdrv -lpthread -o loosen/loosen
-	pasm -b loosen/stepper.asm | grep Error
+	cd loosen && pasm -b stepper.asm | grep Error
 	rm loosen/loosen.o
 endef
 
@@ -46,7 +46,7 @@ endef
 define tighten
 	gcc -c tighten/tighten.c -o tighten/tighten.o
 	gcc tighten/tighten.o -L/user/lib -lm -lprussdrv -lpthread -o tighten/tighten
-	pasm -b tighten/stepper.asm | grep Error
+	cd tighten && pasm -b stepper.asm | grep Error
 	rm tighten/tighten.o
 endef
 
