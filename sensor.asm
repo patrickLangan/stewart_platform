@@ -12,9 +12,9 @@
 .macro WA1
 .mparam reg,clicks
         MOV reg, clicks
-        LOOP:
+        LOOP1:
                 SUB reg, reg, 1
-                QBNE LOOP, reg, 0
+                QBNE LOOP1, reg, 0
         ADD reg, reg, 1
 .endm
 
@@ -45,12 +45,12 @@ START:
 
         //Outputs a 16 bit clock signal, reading the 
         //input gpio on the falling edge.
-        LOOP:
+        LOOP1:
                 MOV r0, 0
                 MOV r4, 0
                 MOV r5, 0
                 MOV r6, 0
-                LOOP2:
+                LOOP12:
                         SET r30.t15
                         WA1 r3, 2000
                         CLR r30.t15
@@ -76,7 +76,7 @@ START:
 
                         WA1 r9, 10000
                         ADD r0, r0, 1
-                QBNE LOOP2, r0, 16
+                QBNE LOOP12, r0, 16
 
                 SBCO r4, CONST_PRUSHAREDRAM, 0, 4
                 SBCO r5, CONST_PRUSHAREDRAM, 4, 4
@@ -84,6 +84,6 @@ START:
 
                 MOV r31.b0, PRU0_ARM_INTERRUPT+16
                 WA1 r9, 360000
-        JMP LOOP
+        JMP LOOP1
 
         HALT
