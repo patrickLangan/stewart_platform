@@ -1,6 +1,10 @@
 pneumaticTests
 ==============
 
+##BBB setup
+Setup PRU based on: http://www.element14.com/community/community/designcenter/single-board-computers/next-gen_beaglebone/blog/2013/05/22/bbb--working-with-the-pru-icssprussv2
+and: https://github.com/beagleboard/am335x_pru_package
+
 ##Wiring
 	Stepper motor
 		DIR: P9.11
@@ -30,4 +34,5 @@ pneumaticTests
 - Fix variable names
 - General cleanup
 - Add comments
+- Fix PRU code based on new library
 

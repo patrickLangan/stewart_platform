@@ -50,7 +50,6 @@ int compareFloats (const void *a, const void *b)
 void PRUWait (void)
 {
 	prussdrv_pru_wait_event (PRU_EVTOUT_0);
-	prussdrv_pru_wait_event (PRU_EVTOUT_0);
 	prussdrv_pru_clear_event (PRU0_ARM_INTERRUPT, PRU0_ARM_INTERRUPT);
 }
 
@@ -61,7 +60,7 @@ void PRUInit (void)
 
 	prussdrv_init();
 
-	if (prussdrv_open (PRU_EVTOUT_0) == -1) {
+	if (prussdrv_open (PRU_EVTOUT_0)) {
 		puts ("Failed to initialize the PRU's memory mapping");
 		exit (1);
 	}
@@ -317,10 +316,12 @@ int main (int argc, char **argv)
 	fprintf (xAxis.run, "0");
 	fflush (xAxis.run);
 
+/*
 	PRUInit ();
 	PRUWait ();
 
 	initSensors ();
+*/
 
 	handle = i2cInit ();
 
@@ -360,8 +361,10 @@ shutdown:
 	shutdownAxis (&yAxis);
 	shutdownAxis (&zAxis);
 
+/*
 	prussdrv_pru_disable (0);
 	prussdrv_exit ();
+*/
 
 	return 0;
 }
