@@ -40,7 +40,7 @@ fi
 
 echo "applied the siegx3_cnc dto"
 
-usleep 200000
+sleep 1
 
 enableGpio 30 "out" "0"
 enableGpio 60 "out" "0"
