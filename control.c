@@ -230,6 +230,19 @@ void i2cRead (int handle)
 	printf ("%f, %f, %f\n", accel.x, accel.y, accel.z);
 }
 
+void pressureRead (int handle)
+{
+	int raw;
+	float pressure;
+	char buffer[2];
+
+	i2c_read (handle, buffer, 2);
+	raw = ((int)buffer[0] << 8) | (int)buffer[1];
+	pressure = (float)raw * 0.0091558323;
+
+	printf ("%f, ", pressure);
+}
+
 void setVelocity (struct axisInfo *axis, float *lastDir, float velocity)
 {
 	unsigned int period;
@@ -299,6 +312,8 @@ int main (int argc, char **argv)
 	struct vector sensor;
 
 	int handle;
+	int pressureHandle0;
+	int pressureHandle1;
 
 	char word[255];
 	float position = 0;
@@ -324,6 +339,7 @@ int main (int argc, char **argv)
 */
 
 	handle = i2cInit ();
+	pressureHandle0 = i2c_open (1, 0x28);
 
 	while (1) {
 		/*
@@ -332,6 +348,7 @@ int main (int argc, char **argv)
 		printf ("%f, %f, %f\n", sensor.x, sensor.y, sensor.z);
 		*/
 
+		pressureRead (pressureHandle0);
 		i2cRead (handle);
 
 /*
