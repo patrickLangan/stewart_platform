@@ -50,7 +50,7 @@ START:
                 MOV r4, 0
                 MOV r5, 0
                 MOV r6, 0
-                LOOP12:
+                LOOP2:
                         SET r30.t15
                         WA1 r3, 2000
                         CLR r30.t15
@@ -76,7 +76,7 @@ START:
 
                         WA1 r9, 10000
                         ADD r0, r0, 1
-                QBNE LOOP12, r0, 16
+                QBNE LOOP2, r0, 16
 
                 SBCO r4, CONST_PRUSHAREDRAM, 0, 4
                 SBCO r5, CONST_PRUSHAREDRAM, 4, 4
