@@ -223,9 +223,9 @@ void i2cRead (int handle)
 	if (0b1000000000000000 & rawZ)
 		rawZ |= 0b11111111111111110000000000000000;
 
-	accel.x = rawX * 0.00390625;
-	accel.y = rawY * 0.00390625;
-	accel.z = rawZ * 0.00390625;
+	accel.x = rawX * 0.0039100684;
+	accel.y = rawY * 0.0039100684;
+	accel.z = rawZ * 0.0039100684;
 
 	printf ("%f, %f, %f\n", accel.x, accel.y, accel.z);
 }
@@ -332,6 +332,9 @@ int main (int argc, char **argv)
 		printf ("%f, %f, %f\n", sensor.x, sensor.y, sensor.z);
 		*/
 
+		i2cRead (handle);
+
+/*
 		printf (":");
 		scanf ("%s", word);
 		if (strcmp ("set", word) == 0) {
@@ -354,6 +357,7 @@ int main (int argc, char **argv)
 		} else {
 			puts ("Bad input");
 		}
+*/
 	}
 
 shutdown:
