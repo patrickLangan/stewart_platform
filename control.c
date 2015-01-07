@@ -6,6 +6,9 @@
 #include <time.h>
 #include <setjmp.h>
 
+#define ACCEL_SCALE	0.0039100684
+#define PRESSURE_SCALE	0.0091558323
+
 struct vector {
 	float x;
 	float y;
@@ -36,6 +39,14 @@ float gettimefromfunction (struct timeval startTime)
 	return ((float)(curTime.tv_sec - startTime.tv_sec) * 1e3) + ((float)(curTime.tv_usec - startTime.tv_usec) * 1e-3);
 }
 
+int convert16to32bit (int num)
+{
+	if (0b1000000000000000 & num)
+		num |= 0b11111111111111110000000000000000;
+
+	return num;
+}
+
 int accelInit (void)
 {
 	int handle;
@@ -63,41 +74,33 @@ int accelInit (void)
 
 struct vector accelRead (int handle)
 {
+	char buffer[6];
 	int rawX, rawY, rawZ;
 	struct vector accel;
-	char buffer[6];
 
 	i2c_write_byte (handle, 0x32);
 	i2c_read (handle, buffer, 6);
+
 	rawX = ((int)buffer[1] << 8) | (int)buffer[0];
 	rawY = ((int)buffer[3] << 8) | (int)buffer[2];
 	rawZ = ((int)buffer[5] << 8) | (int)buffer[4];
 
-	if (0b1000000000000000 & rawX)
-		rawX |= 0b11111111111111110000000000000000;
-	if (0b1000000000000000 & rawY)
-		rawY |= 0b11111111111111110000000000000000;
-	if (0b1000000000000000 & rawZ)
-		rawZ |= 0b11111111111111110000000000000000;
+	accel.x = (float)convert16to32bit (rawX) * ACCEL_SCALE;
+	accel.y = (float)convert16to32bit (rawY) * ACCEL_SCALE;
+	accel.z = (float)convert16to32bit (rawZ) * ACCEL_SCALE;
 
-	accel.x = (float)rawX * 0.0039100684;
-	accel.y = (float)rawY * 0.0039100684;
-	accel.z = (float)rawZ * 0.0039100684;
-
-	return (struct vector){accel.x, accel.y, accel.z};
+	return (struct vector) {accel.x, accel.y, accel.z};
 }
 
 float pressureRead (int handle)
 {
-	int raw;
-	float pressure;
 	char buffer[2];
+	int raw;
 
 	i2c_read (handle, buffer, 2);
 	raw = ((int)buffer[0] << 8) | (int)buffer[1];
-	pressure = (float)raw * 0.0091558323;
 
-	return pressure;
+	return (float)raw * PRESSURE_SCALE;
 }
 
 int main (int argc, char **argv)
