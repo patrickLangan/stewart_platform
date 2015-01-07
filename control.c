@@ -61,7 +61,7 @@ int accelInit (void)
 	return handle;
 }
 
-void accelRead (int handle)
+struct vector accelRead (int handle)
 {
 	int rawX, rawY, rawZ;
 	struct vector accel;
@@ -84,10 +84,10 @@ void accelRead (int handle)
 	accel.y = (float)rawY * 0.0039100684;
 	accel.z = (float)rawZ * 0.0039100684;
 
-	printf ("%f, %f, %f\n", accel.x, accel.y, accel.z);
+	return (struct vector){accel.x, accel.y, accel.z};
 }
 
-void pressureRead (int handle)
+float pressureRead (int handle)
 {
 	int raw;
 	float pressure;
@@ -97,31 +97,48 @@ void pressureRead (int handle)
 	raw = ((int)buffer[0] << 8) | (int)buffer[1];
 	pressure = (float)raw * 0.0091558323;
 
-	printf ("%f, ", pressure);
+	return pressure;
 }
 
 int main (int argc, char **argv)
 {
-	int accel;
-	int pressure1;
-	int pressure2;
+	int handleAccel;
+	int handlePress1;
+	int handlePress2;
+
+	struct vector accel;
+	float pressure1;
+	float pressure2;
+
+	FILE *file;
 
 	if (setjmp (buf))
 		goto shutdown;
 
 	signal (SIGINT, signalCatcher);
 
-	accel = accelInit ();
-	pressure1 = i2c_open (1, 0x28);
-	pressure2 = i2c_open (2, 0x28);
+	if (
+		((argc < 2) ? fprintf (stderr, "Give a file name for the output to be written to.") : 0) ||
+		((argc > 2) ? fprintf (stderr, "Too many parameters.") : 0)
+	)
+		return 1;
+
+	file = fopen (argv[1], "w");
+
+	handleAccel = accelInit ();
+	handlePress1 = i2c_open (1, 0x28);
+	handlePress2 = i2c_open (2, 0x28);
 
 	while (1) {
-		pressureRead (pressure1);
-		pressureRead (pressure2);
-		accelRead (accel);
+		pressure1 = pressureRead (handlePress1);
+		pressure2 = pressureRead (handlePress2);
+		accel = accelRead (handleAccel);
+
+		fprintf (file, "%f, %f, %f, %f, %f\n", pressure1, pressure2, accel.x, accel.y, accel.z);
 	}
 
 shutdown:
+	fclose (file);
 
 	return 0;
 }
