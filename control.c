@@ -179,7 +179,7 @@ void initSensors (void)
 	free (initArrayZ);
 }
 
-int i2cInit (void)
+int accelInit (void)
 {
 	int handle;
 	char buffer[2];
@@ -204,7 +204,7 @@ int i2cInit (void)
 	return handle;
 }
 
-void i2cRead (int handle)
+void accelRead (int handle)
 {
 	int rawX, rawY, rawZ;
 	struct vector accel;
@@ -223,9 +223,9 @@ void i2cRead (int handle)
 	if (0b1000000000000000 & rawZ)
 		rawZ |= 0b11111111111111110000000000000000;
 
-	accel.x = rawX * 0.0039100684;
-	accel.y = rawY * 0.0039100684;
-	accel.z = rawZ * 0.0039100684;
+	accel.x = (float)rawX * 0.0039100684;
+	accel.y = (float)rawY * 0.0039100684;
+	accel.z = (float)rawZ * 0.0039100684;
 
 	printf ("%f, %f, %f\n", accel.x, accel.y, accel.z);
 }
@@ -311,9 +311,9 @@ int main (int argc, char **argv)
 
 	struct vector sensor;
 
-	int handle;
-	int pressureHandle0;
-	int pressureHandle1;
+	int accel;
+	int pressure1;
+	int pressure2;
 
 	char word[255];
 	float position = 0;
@@ -338,8 +338,9 @@ int main (int argc, char **argv)
 	initSensors ();
 */
 
-	handle = i2cInit ();
-	pressureHandle0 = i2c_open (1, 0x28);
+	accel = accelInit ();
+	pressure1 = i2c_open (1, 0x28);
+	pressure2 = i2c_open (2, 0x28);
 
 	while (1) {
 		/*
@@ -348,8 +349,9 @@ int main (int argc, char **argv)
 		printf ("%f, %f, %f\n", sensor.x, sensor.y, sensor.z);
 		*/
 
-		pressureRead (pressureHandle0);
-		i2cRead (handle);
+		pressureRead (pressure1);
+		pressureRead (pressure2);
+		accelRead (accel);
 
 /*
 		printf (":");
