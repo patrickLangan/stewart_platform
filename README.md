@@ -10,7 +10,7 @@ pneumaticTests
 		Data:	P9.18
 
 ##TODO
-- Make vectors of arbitrary variable type
+- Write sensor readings to a file
 - Sensor calibration
 - Integrate acceleration to get cylinder stroke
 - Error checking, and handling
