@@ -45,3 +45,6 @@ sleep 1
 enableGpio 30 "out" "0"
 enableGpio 60 "out" "0"
 enableGpio 31 "out" "0"
+
+echo BB-I2C1 > /sys/devices/bone_capemgr.*/slots
+
