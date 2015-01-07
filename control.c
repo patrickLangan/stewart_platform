@@ -120,11 +120,10 @@ int main (int argc, char **argv)
 
 	signal (SIGINT, signalCatcher);
 
-	if (
-		((argc < 2) ? fprintf (stderr, "Give a file name for the output to be written to.") : 0) ||
-		((argc > 2) ? fprintf (stderr, "Too many parameters.") : 0)
-	)
+	if (argc > 2) {
+		fprintf (stderr, "Too many parameters.");
 		return 1;
+	} 
 
 	file = fopen (argv[1], "w");
 
@@ -137,7 +136,10 @@ int main (int argc, char **argv)
 		pressure2 = pressureRead (handlePress2);
 		accel = accelRead (handleAccel);
 
-		fprintf (file, "%f, %f, %f, %f, %f\n", pressure1, pressure2, accel.x, accel.y, accel.z);
+		if (argc == 1)
+			printf ("%f, %f, %f, %f, %f\n", pressure1, pressure2, accel.x, accel.y, accel.z);
+		else
+			fprintf (file, "%f, %f, %f, %f, %f\n", pressure1, pressure2, accel.x, accel.y, accel.z);
 	}
 
 shutdown:
