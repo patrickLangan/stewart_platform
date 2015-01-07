@@ -39,6 +39,17 @@ float gettimefromfunction (struct timeval startTime)
 	return ((float)(curTime.tv_sec - startTime.tv_sec) * 1e3) + ((float)(curTime.tv_usec - startTime.tv_usec) * 1e-3);
 }
 
+void printBinary (int num)
+{
+	int i;
+
+	for (i = 0; i < 33; i++) {
+		printf ("%d", num & 1);
+		num >>= 1;
+	}
+	puts ("");
+}
+
 int convert16to32bit (int num)
 {
 	if (0b1000000000000000 & num)
