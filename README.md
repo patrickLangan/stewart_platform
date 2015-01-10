@@ -10,11 +10,7 @@ pneumaticTests
 		Data:	P9.18
 
 ##TODO
-- Write sensor readings to a file
-- Sensor calibration
-- Integrate acceleration to get cylinder stroke
 - Error checking, and handling
-- General cleanup
 - Add comments
 - Add PRU back, this time for stepper control and timming
 
