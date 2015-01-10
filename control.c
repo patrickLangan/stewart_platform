@@ -89,18 +89,24 @@ struct vector accelRead (int handle)
 	int rawX, rawY, rawZ;
 	struct vector accel;
 
-	i2c_write_byte (handle, 0x32);
-	i2c_read (handle, buffer, 6);
-
-	rawX = ((int)buffer[1] << 8) | (int)buffer[0];
-	rawY = ((int)buffer[3] << 8) | (int)buffer[2];
-	rawZ = ((int)buffer[5] << 8) | (int)buffer[4];
-
-	accel.x = (float)convert16to32bit (rawX) * ACCEL_SCALE;
+	i2c_write_byte (handle, 0x34);
+	i2c_read (handle, buffer, 2);
+	rawY = ((int)buffer[1] << 8) | (int)buffer[0];
 	accel.y = (float)convert16to32bit (rawY) * ACCEL_SCALE;
-	accel.z = (float)convert16to32bit (rawZ) * ACCEL_SCALE;
 
 	return (struct vector) {accel.x, accel.y, accel.z};
+}
+
+float singleAccelRead (int handle, int address)
+{
+	char buffer[2];
+	int raw;
+
+	i2c_write_byte (handle, address);
+	i2c_read (handle, buffer, 2);
+	raw = ((int)buffer[1] << 8) | (int)buffer[0];
+
+	return (float)convert16to32bit (raw) * ACCEL_SCALE;
 }
 
 float pressureRead (int handle)
@@ -120,21 +126,25 @@ int main (int argc, char **argv)
 	int handlePress1;
 	int handlePress2;
 
-	struct vector accel;
+	float acceleration;
 	float pressure1;
 	float pressure2;
 
 	FILE *file;
+
+	struct timeval initTime;
+	float time;
 
 	if (setjmp (buf))
 		goto shutdown;
 
 	signal (SIGINT, signalCatcher);
 
-	if (argc > 2) {
-		fprintf (stderr, "Too many parameters.");
+	if (
+		((argc < 2) ? fprintf (stderr, "You need to pass a file name for data to be written to.") : 0) ||
+		((argc > 2) ? fprintf (stderr, "Too many parameters.") : 0)
+	)
 		return 1;
-	} 
 
 	file = fopen (argv[1], "w");
 
@@ -142,18 +152,22 @@ int main (int argc, char **argv)
 	handlePress1 = i2c_open (1, 0x28);
 	handlePress2 = i2c_open (2, 0x28);
 
+	fprintf (file, "time (ms), pressure1, pressure2, accel (g)\n");
+
+	gettimeofday (&initTime, NULL);
+
 	while (1) {
 		pressure1 = pressureRead (handlePress1);
 		pressure2 = pressureRead (handlePress2);
-		accel = accelRead (handleAccel);
+		acceleration = singleAccelRead (handleAccel, 0x34);
 
-		if (argc == 1)
-			printf ("%f, %f, %f, %f, %f\n", pressure1, pressure2, accel.x, accel.y, accel.z);
-		else
-			fprintf (file, "%f, %f, %f, %f, %f\n", pressure1, pressure2, accel.x, accel.y, accel.z);
+		time = gettimefromfunction (initTime);
+
+		fprintf (file, "%f, %f, %f, %f\n", time, pressure1, pressure2, acceleration);
 	}
 
 shutdown:
+
 	fclose (file);
 
 	return 0;
