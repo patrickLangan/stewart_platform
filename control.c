@@ -68,7 +68,7 @@ int accelInit (void)
 	i2c_write_byte (handle, 0x00);
 	i2c_read (handle, buffer, 1);
 	if ((int)*buffer != 0xE5) {
-		fprintf (stderr, "Could not connect to accelerometer");
+		fprintf (stderr, "Could not connect to accelerometer\n");
 		return -1;
 	}
 
@@ -141,8 +141,8 @@ int main (int argc, char **argv)
 	signal (SIGINT, signalCatcher);
 
 	if (
-		((argc < 2) ? fprintf (stderr, "You need to pass a file name for data to be written to.") : 0) ||
-		((argc > 2) ? fprintf (stderr, "Too many parameters.") : 0)
+		((argc < 2) ? fprintf (stderr, "You need to pass a file name for data to be written to.\n") : 0) ||
+		((argc > 2) ? fprintf (stderr, "Too many parameters.\n") : 0)
 	)
 		return 1;
 
