@@ -89,10 +89,15 @@ struct vector accelRead (int handle)
 	int rawX, rawY, rawZ;
 	struct vector accel;
 
-	i2c_write_byte (handle, 0x34);
-	i2c_read (handle, buffer, 2);
-	rawY = ((int)buffer[1] << 8) | (int)buffer[0];
+	i2c_write_byte (handle, 0x32);
+	i2c_read (handle, buffer, 6);
+	rawX = ((int)buffer[1] << 8) | (int)buffer[0];
+	rawY = ((int)buffer[3] << 8) | (int)buffer[2];
+	rawZ = ((int)buffer[5] << 8) | (int)buffer[4];
+
+	accel.x = (float)convert16to32bit (rawX) * ACCEL_SCALE;
 	accel.y = (float)convert16to32bit (rawY) * ACCEL_SCALE;
+	accel.z = (float)convert16to32bit (rawZ) * ACCEL_SCALE;
 
 	return (struct vector) {accel.x, accel.y, accel.z};
 }
