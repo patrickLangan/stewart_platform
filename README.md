@@ -9,10 +9,12 @@ Disabling HDMI frees up pins P8.27-46.  To do so:
 - Uncomment or add: optargs=capemgr.disable_partno=BB-BONELT-HDMI,BB-BONELT-HDMIN
 - umount /mnt
 - sudo poweroff
+
 ###Disabling eMMC
 Disabling eMMC (the 4gb onboard memory) frees up pins P8.20-25 and 3-6.  Before you disable it you need to stop booting from it and switch to an SD card.
 - SD images are here: http://beagleboard.org/latest-images
 - Instalation instructions are here (Update board with latest software): http://beagleboard.org/getting-started
+
 After booting into the SD card you can make changes similar to how the HDMI was disabled
 - mount /dev/mmcblk0p1  /mnt
 - vim /mnt/uEnv.txt
@@ -21,6 +23,7 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 - Uncomment or add: uenvcmd=run mmcreset;
 - umount /mnt
 - sudo poweroff
+
 ###Setting up and running the control program
 - git clone https://github.com/patrickLangan/pneumaticTests.git
 - cd ~/pneumaticTests/i2c-400hz
