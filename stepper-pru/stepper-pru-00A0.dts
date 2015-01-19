@@ -67,4 +67,14 @@
 			};
 		};
 	};
+
+	fragment@2 {
+		target = <&pruss>;
+
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&stepper_pru>;
+		};
+	};
 };
