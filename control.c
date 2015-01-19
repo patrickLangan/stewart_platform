@@ -20,6 +20,12 @@ struct vector {
 	float z;
 };
 
+struct valveInfo {
+	int gpio;
+	int value;
+	FILE *file;
+};
+
 static jmp_buf buf;
 
 void signalCatcher (int null)
@@ -96,6 +102,33 @@ int pruClose (void)
 	if (prussdrv_exit()) {
 		fprintf (stderr, "prussdrv_exit () failed\n");
 		return 1;
+	}
+
+	return 0;
+}
+
+int controlValveInit (struct valveInfo *controlValve)
+{
+	int i;
+	char gpioPath[30];
+
+	for (i = 0; i < 6; i++) {
+		sprintf (gpioPath, "/sys/class/gpio/gpio%d/value", controlValve[i].gpio);
+		controlValve[i].file = fopen (gpioPath, "w");
+		fprintf (controlValve[i].file, "0");
+		fflush (controlValve[i].file);
+	}
+
+	return 0;
+}
+
+int controlValveClose (struct valveInfo *controlValve)
+{
+	int i;
+
+	for (i = 0; i < 6; i++) {
+		fprintf (controlValve[i].file, "0");
+		fclose (controlValve[i].file);
 	}
 
 	return 0;
@@ -183,15 +216,31 @@ int main (int argc, char **argv)
 	struct timeval initTime;
 	float time;
 
+	struct valveInfo controlValve[6] = {{89}, {10}, {11}, {9}, {81}, {8}};
+
+	int i;
+
 	if (setjmp (buf))
 		goto shutdown;
 
 	signal (SIGINT, signalCatcher);
 
+	controlValveInit (controlValve);
+
 	pruOpen ();
 
-	while (1)
-		sleep (1);
+	while (1) {
+		for (i = 0; i < 6; i++) {
+			fprintf (controlValve[i].file, "1");
+			fflush (controlValve[i].file);
+		}
+		sleep (2);
+		for (i = 0; i < 6; i++) {
+			fprintf (controlValve[i].file, "0");
+			fflush (controlValve[i].file);
+		}
+		sleep (2);
+	}
 
 /*
 	if (
@@ -224,6 +273,8 @@ int main (int argc, char **argv)
 shutdown:
 
 	//fclose (file);
+
+	controlValveClose (controlValve);
 
 	pruClose ();
 
