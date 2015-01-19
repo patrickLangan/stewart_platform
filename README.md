@@ -18,9 +18,9 @@ Disabling eMMC (the 4gb onboard memory) frees up pins P8.20-25 and 3-6.  Before 
 After booting into the SD card you can make changes similar to how the HDMI was disabled
 - mount /dev/mmcblk0p1  /mnt
 - vim /mnt/uEnv.txt
-- Uncomment or add:	cape_disable=capemgr.disable_partno=BB-BONE-EMMC-2G
-- 			mmcreset=mmc dev 1; mmc rstn 1; gpio set 52
-- 			uenvcmd=run mmcreset;
+- Uncomment or add: cape_disable=capemgr.disable_partno=BB-BONE-EMMC-2G
+- Uncomment or add: mmcreset=mmc dev 1; mmc rstn 1; gpio set 52
+- Uncomment or add: uenvcmd=run mmcreset;
 - umount /mnt
 - sudo poweroff
 
