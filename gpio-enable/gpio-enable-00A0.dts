@@ -5,7 +5,13 @@
 	compatible = "ti,beaglebone", "ti,beaglebone-black";
 	part_number = "gpio-enable";
 	version = "00A0";
-	exclusive-use =	"P8.26",
+	exclusive-use = "P8.35",
+			"P8.34",
+			"P8.33",
+			"P8.32",
+			"P8.31",
+			"P8.30",
+			"P8.26",
 			"P8.25",
 			"P8.24",
 			"P8.23",
@@ -30,7 +36,13 @@
 			"gpio1_4",
 			"gpio1_1",
 			"gpio1_0",
-			"gpio1_29";
+			"gpio1_29",
+			"gpio2_25",
+			"gpio0_10",
+			"gpio0_11",
+			"gpio0_9",
+			"gpio2_17",
+			"gpio0_8";
 
 	fragment@0 {
 		target = <&am33xx_pinmux>;
@@ -50,6 +62,12 @@
 							0x004 0x7
 							0x000 0x7
 							0x07c 0x7
+							0x0ec 0x7
+							0x0d8 0x7
+							0x0dc 0x7
+							0x0d4 0x7
+							0x0cc 0x7
+							0x0d0 0x7
 				>;
 			};
 		};
