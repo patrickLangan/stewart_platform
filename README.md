@@ -34,19 +34,25 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 	i2c-1
 		Clock:	P9.19
 		Data:	P9.20
+
 	i2c-2
 		Clock:	P9.17
 		Data:	P9.18
-	PRU1
+
+	PRU1 (stepper STEP)
 		PinOut:	P8.20-21, 27-29, and 39-46
 
-	GPIO1
+	GPIO1 (stepper DIR)
 		PinOut: P8.3-6, 12-12, 15-16, and 22-26
+
+	GPIO (directional control valve)
+		PinOut: P8.30-35
 
 ##TODO
 - Error checking, and handling
 - Add comments
-- Enable 6 more GPIO pins for the directional control valves
+- Get joystick input
+- Use high speed gpio access method
 - Merge the device tree overlays
 - Write stepper control program
 
