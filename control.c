@@ -5,9 +5,14 @@
 #include <errno.h>
 #include <time.h>
 #include <setjmp.h>
+#include <prussdrv.h>
+#include <pruss_intc_mapping.h>
 
 #define ACCEL_SCALE	0.0039100684
 #define PRESSURE_SCALE	0.0091558323
+
+static void *pruDataMem;
+static unsigned int *pruDataMem_int;
 
 struct vector {
 	float x;
@@ -56,6 +61,44 @@ int convert16to32bit (int num)
 		num |= 0b11111111111111110000000000000000;
 
 	return num;
+}
+
+int pruOpen (void)
+{
+	tpruss_intc_initdata intc = PRUSS_INTC_INITDATA;
+
+	if (prussdrv_init ()) {
+		fprintf (stderr, "prussdrw_init () failed\n");
+		return 1;
+	}
+
+	if (prussdrv_open (PRU_EVTOUT_1)) {
+		fprintf (stderr, "prussdrv_open (PRU_EVTOUT_1) failed\n");
+		return 1;
+	}
+
+	if (prussdrv_exec_program (1, "./stepper.bin")) {
+		fprintf (stderr, "prussdrv_exec_program (1, './stepper.bin') failed\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+
+int pruClose (void)
+{
+	if (prussdrv_pru_disable (1)) {
+		fprintf (stderr, "prussdrv_pru_disable (1) failed\n");
+		return 1;
+	}
+
+	if (prussdrv_exit()) {
+		fprintf (stderr, "prussdrv_exit () failed\n");
+		return 1;
+	}
+
+	return 0;
 }
 
 int accelInit (void)
@@ -145,6 +188,12 @@ int main (int argc, char **argv)
 
 	signal (SIGINT, signalCatcher);
 
+	pruOpen ();
+
+	while (1)
+		sleep (1);
+
+/*
 	if (
 		((argc < 2) ? fprintf (stderr, "You need to pass a file name for data to be written to.\n") : 0) ||
 		((argc > 2) ? fprintf (stderr, "Too many parameters.\n") : 0)
@@ -170,10 +219,13 @@ int main (int argc, char **argv)
 
 		fprintf (file, "%f, %f, %f, %f\n", time, pressure1, pressure2, acceleration);
 	}
+*/
 
 shutdown:
 
-	fclose (file);
+	//fclose (file);
+
+	pruClose ();
 
 	return 0;
 }
