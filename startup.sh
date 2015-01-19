@@ -45,5 +45,13 @@ enableGpio 36 "out" 0
 enableGpio 33 "out" 0
 enableGpio 32 "out" 0
 enableGpio 61 "out" 0
+
+enableGpio 89 "out" 0 
+enableGpio 10 "out" 0
+enableGpio 11 "out" 0
+enableGpio 9  "out" 0
+enableGpio 81 "out" 0
+enableGpio 8  "out" 0
+
 cat /sys/kernel/debug/gpio
 
