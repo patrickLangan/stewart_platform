@@ -54,5 +54,5 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 - Generalize functions
 - Use high speed gpio access method
 - Merge the device tree overlays
-- Write stepper control program
+- Write piston control program
 
