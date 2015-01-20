@@ -134,6 +134,23 @@ int controlValveClose (struct valveInfo *controlValve)
 	return 0;
 }
 
+float joystickRead (FILE *file)
+{
+	int value;
+
+	fscanf (file, "%d", &value);
+	fflush (file);
+	fseek (file, 0, SEEK_SET);
+
+	value -= 960;
+
+	if (abs (value) < 10)
+		return 0.0;
+	else
+		return (float)value / 960.0;
+
+}
+
 int accelInit (void)
 {
 	int handle;
@@ -218,6 +235,9 @@ int main (int argc, char **argv)
 
 	struct valveInfo controlValve[6] = {{89}, {10}, {11}, {9}, {81}, {8}};
 
+	FILE *joystickFile;
+	float joystick;
+
 	int i;
 
 	if (setjmp (buf))
@@ -226,10 +246,13 @@ int main (int argc, char **argv)
 	signal (SIGINT, signalCatcher);
 
 	controlValveInit (controlValve);
-
 	pruOpen ();
+	joystickFile = fopen ("/sys/devices/ocp.3/helper.13/AIN1", "r");
 
 	while (1) {
+		joystick = joystickRead (joystickFile);
+		printf ("%f\n", joystick);
+/*
 		for (i = 0; i < 6; i++) {
 			fprintf (controlValve[i].file, "1");
 			fflush (controlValve[i].file);
@@ -240,6 +263,7 @@ int main (int argc, char **argv)
 			fflush (controlValve[i].file);
 		}
 		sleep (2);
+*/
 	}
 
 /*
@@ -273,9 +297,8 @@ int main (int argc, char **argv)
 shutdown:
 
 	//fclose (file);
-
+	fclose (joystickFile);
 	controlValveClose (controlValve);
-
 	pruClose ();
 
 	return 0;
