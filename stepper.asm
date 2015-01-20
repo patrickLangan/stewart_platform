@@ -7,8 +7,12 @@
 #define GPIO_CLEARDATAOUT   0x190
 #define GPIO_SETDATAOUT     0x194
 
+#define CONST_PRUDRAM C24
+#define CTBIR_0 0x22020
+#define CTBIR_1 0x22024
+
 .macro WAIT
-.mparam reg,clicks
+.mparam reg, clicks
 	MOV reg, clicks
 	LOOP1:
 		SUB reg, reg, 1
@@ -21,6 +25,15 @@ START:
 	LBCO r0, CONST_PRUCFG, 4, 4
 	CLR r0, r0, 4
 	SBCO r0, CONST_PRUCFG, 4, 4
+
+	//Configure the block index register
+	MOV r0, 0x00000000
+	MOV r1, CTBIR_1
+	SBBO r0, r1, #0x00, 4
+
+	//Copies data in PRU RAM from c-side input to c-side output
+	LBCO r3, CONST_PRUDRAM, 4, 4
+	SBCO r3, CONST_PRUDRAM, 8, 4
 
 	//Constants obtained from: https://groups.google.com/forum/?fromgroups=#!topic/beagleboard/35ZXP82EQjA%5B1-25-false%5D
 	MOV r2, 0b11111111111111111111111111111111
