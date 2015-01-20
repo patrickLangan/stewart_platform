@@ -247,7 +247,6 @@ int main (int argc, char **argv)
 
 	prussdrv_map_prumem (PRUSS0_PRU1_DATARAM, &pruDataMem);
 	pruDataMem_int = (unsigned int*) pruDataMem;
-	pruDataMem_int[1] = 80085;
 
 	if (prussdrv_exec_program (1, "./stepper.bin")) {
 		fprintf (stderr, "prussdrv_exec_program (1, './stepper.bin') failed\n");
@@ -255,8 +254,9 @@ int main (int argc, char **argv)
 	}
 
 	while (1) {
-		//joystick = joystickRead (joystickFile);
-		//printf ("%f\n", joystick);
+		joystick = joystickRead (joystickFile);
+		printf ("%f\n", joystick);
+		pruDataMem_int[0] = (int)(joystick * 100.0);
 /*
 		for (i = 0; i < 6; i++) {
 			fprintf (controlValve[i].file, "1");
@@ -300,9 +300,6 @@ int main (int argc, char **argv)
 */
 
 shutdown:
-
-	printf ("\n%d\n", pruDataMem_int[1]);
-	printf ("%d\n", pruDataMem_int[2]);
 
 	//fclose (file);
 	fclose (joystickFile);
