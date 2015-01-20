@@ -51,7 +51,7 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 ##TODO
 - Error checking, and handling
 - Add comments
-- Get joystick input
+- Generalize functions
 - Use high speed gpio access method
 - Merge the device tree overlays
 - Write stepper control program
