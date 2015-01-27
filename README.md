@@ -46,17 +46,16 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 		PinOut: P8.3-6, 12-12, 15-16, and 22-26
 
 	GPIO (directional control valve)
-		PinOut: P8.30-35
+		PinOut: P8.18, P9.30, P8.34, P8.36-38
 
 ##TODO
 - Error checking, and handling
 - Add comments
 - Generalize functions
-- Use high speed gpio access method
 - Merge the device tree overlays
-- Account for moving analog input directory
-- Add PRU to am33xx interupt (for knowing when the motor is done moving)
 - Switch from needle-needle to needle-flow control
 - Get rough position from accelerometer double integration
 - PID control
+- Connect to all seven accelegyrometors
+- Add motor acceleration
 
