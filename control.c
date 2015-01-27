@@ -105,33 +105,6 @@ int pruClose (void)
 	return 0;
 }
 
-int controlValveInit (struct valveInfo *controlValve)
-{
-	int i;
-	char gpioPath[30];
-
-	for (i = 0; i < 6; i++) {
-		sprintf (gpioPath, "/sys/class/gpio/gpio%d/value", controlValve[i].gpio);
-		controlValve[i].file = fopen (gpioPath, "w");
-		fprintf (controlValve[i].file, "0");
-		fflush (controlValve[i].file);
-	}
-
-	return 0;
-}
-
-int controlValveClose (struct valveInfo *controlValve)
-{
-	int i;
-
-	for (i = 0; i < 6; i++) {
-		fprintf (controlValve[i].file, "0");
-		fclose (controlValve[i].file);
-	}
-
-	return 0;
-}
-
 int joystickRead (FILE *file)
 {
 	int value;
@@ -214,7 +187,6 @@ float pressureRead (int handle)
 
 int main (int argc, char **argv)
 {
-	struct valveInfo controlValve[6] = {{89}, {10}, {11}, {9}, {81}, {8}};
 	FILE *joystickFile;
 	int i;
 
@@ -223,7 +195,6 @@ int main (int argc, char **argv)
 
 	signal (SIGINT, signalCatcher);
 
-	controlValveInit (controlValve);
 	joystickFile = fopen ("/sys/devices/ocp.3/helper.13/AIN1", "r");
 
 	pruOpen ();
@@ -238,7 +209,6 @@ int main (int argc, char **argv)
 
 	while (1) {
 		int joystick = 0;
-		static int dir = 0;
 
 		for (i = 0; i < 100; i++)
 			joystick += joystickRead (joystickFile);
@@ -250,30 +220,13 @@ int main (int argc, char **argv)
 		else
 			joystick *= JOYSTICK_SCALE_DOWN;
 
-		pruDataMem_int[0] = abs (joystick);
-		pruDataMem_int[1] = abs (joystick);
-
-		if (joystick < 0) {
-			if (dir == 0) {
-				usleep (10000);
-				fprintf (controlValve[0].file, "1");
-				fflush (controlValve[0].file);
-				dir = 1;
-			}
-		} else {
-			if (dir == 1) {
-				usleep (200000);
-				fprintf (controlValve[0].file, "0");
-				fflush (controlValve[0].file);
-				dir = 0;
-			}
-		}
+		pruDataMem_int[0] = joystick;
+		pruDataMem_int[1] = joystick;
 	}
 
 shutdown:
 
 	fclose (joystickFile);
-	controlValveClose (controlValve);
 	pruClose ();
 
 	return 0;
