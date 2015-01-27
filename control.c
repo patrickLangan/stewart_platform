@@ -11,6 +11,9 @@
 #define ACCEL_SCALE	0.0039100684
 #define PRESSURE_SCALE	0.0091558323
 
+#define JOYSTICK_SCALE_UP	0.01
+#define JOYSTICK_SCALE_DOWN	0.0075
+
 static void *pruDataMem;
 static unsigned int *pruDataMem_int;
 
@@ -129,7 +132,7 @@ int controlValveClose (struct valveInfo *controlValve)
 	return 0;
 }
 
-float joystickRead (FILE *file)
+int joystickRead (FILE *file)
 {
 	int value;
 
@@ -139,11 +142,7 @@ float joystickRead (FILE *file)
 
 	value -= 960;
 
-	if (abs (value) < 10)
-		return 0.0;
-	else
-		return (float)value / 960.0;
-
+	return value;
 }
 
 int accelInit (void)
@@ -215,24 +214,8 @@ float pressureRead (int handle)
 
 int main (int argc, char **argv)
 {
-	int handleAccel;
-	int handlePress1;
-	int handlePress2;
-
-	float acceleration;
-	float pressure1;
-	float pressure2;
-
-	FILE *file;
-
-	struct timeval initTime;
-	float time;
-
 	struct valveInfo controlValve[6] = {{89}, {10}, {11}, {9}, {81}, {8}};
-
 	FILE *joystickFile;
-	float joystick;
-
 	int i;
 
 	if (setjmp (buf))
@@ -254,54 +237,41 @@ int main (int argc, char **argv)
 	}
 
 	while (1) {
-		joystick = joystickRead (joystickFile);
-		printf ("%f\n", joystick);
-		pruDataMem_int[0] = (int)(joystick * 100.0);
-/*
-		for (i = 0; i < 6; i++) {
-			fprintf (controlValve[i].file, "1");
-			fflush (controlValve[i].file);
+		int joystick = 0;
+		static int dir = 0;
+
+		for (i = 0; i < 100; i++)
+			joystick += joystickRead (joystickFile);
+
+		if (abs (joystick) < 1000)
+			joystick = 0;
+		else if (joystick < 0)
+			joystick *= JOYSTICK_SCALE_UP;
+		else
+			joystick *= JOYSTICK_SCALE_DOWN;
+
+		pruDataMem_int[0] = abs (joystick);
+		pruDataMem_int[1] = abs (joystick);
+
+		if (joystick < 0) {
+			if (dir == 0) {
+				usleep (10000);
+				fprintf (controlValve[0].file, "1");
+				fflush (controlValve[0].file);
+				dir = 1;
+			}
+		} else {
+			if (dir == 1) {
+				usleep (200000);
+				fprintf (controlValve[0].file, "0");
+				fflush (controlValve[0].file);
+				dir = 0;
+			}
 		}
-		sleep (2);
-		for (i = 0; i < 6; i++) {
-			fprintf (controlValve[i].file, "0");
-			fflush (controlValve[i].file);
-		}
-		sleep (2);
-*/
 	}
-
-/*
-	if (
-		((argc < 2) ? fprintf (stderr, "You need to pass a file name for data to be written to.\n") : 0) ||
-		((argc > 2) ? fprintf (stderr, "Too many parameters.\n") : 0)
-	)
-		return 1;
-
-	file = fopen (argv[1], "w");
-
-	handleAccel = accelInit ();
-	handlePress1 = i2c_open (1, 0x28);
-	handlePress2 = i2c_open (2, 0x28);
-
-	fprintf (file, "time (ms), pressure1, pressure2, accel (g)\n");
-
-	gettimeofday (&initTime, NULL);
-
-	while (1) {
-		pressure1 = pressureRead (handlePress1);
-		pressure2 = pressureRead (handlePress2);
-		acceleration = singleAccelRead (handleAccel, 0x34);
-
-		time = gettimefromfunction (initTime);
-
-		fprintf (file, "%f, %f, %f, %f\n", time, pressure1, pressure2, acceleration);
-	}
-*/
 
 shutdown:
 
-	//fclose (file);
 	fclose (joystickFile);
 	controlValveClose (controlValve);
 	pruClose ();
