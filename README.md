@@ -54,5 +54,9 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 - Generalize functions
 - Use high speed gpio access method
 - Merge the device tree overlays
-- Write piston control program
+- Account for moving analog input directory
+- Add PRU to am33xx interupt (for knowing when the motor is done moving)
+- Switch from needle-needle to needle-flow control
+- Get rough position from accelerometer double integration
+- PID control
 
