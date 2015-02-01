@@ -40,114 +40,82 @@ START:
 	MOV r1, CTBIR_1
 	SBBO r0, r1, #0x00, 4
 
-	//Zero the step positions of both motors
+	//Zero the step position
 	MOV r1, 0
-	MOV r2, 0
 
 	//Set the direction of the control valve down
-	MOV r5, 0
+	MOV r2, 0
 
-	LOOP1:
-		//Get desired step position of motor 1
-		LBCO r3, CONST_PRUDRAM, 0, 4
+LOOP1:
+	//Get desired step position of motor pair 1
+	LBCO r3, CONST_PRUDRAM, 0, 4
 
-		//Test if the desired position is positive or negitive
-		MOV r4, 1 << 31
-		AND r4, r3, r4
-		QBEQ POS1, r4, 0
+	//Test if the desired position is positive or negitive
+	MOV r4, 1 << 31
+	AND r4, r3, r4
+	QBEQ POS1, r4, 0
 
-		//Convert negitive number to positive
-		SUB r3, r3, 1
-		NOT r3, r3
+	//Convert negitive number to positive
+	SUB r3, r3, 1
+	NOT r3, r3
 
-		//If the valves are closed, there may be a direction change
-		QBNE DIRSET, r1, 0
+	//If the valves are closed (r1 = 0), there may be a direction change
+	QBNE DIRSET, r1, 0
 
-		//If there is a change in direction, flip the control valve
-		QBEQ DIRSET, r5, 1
-		MOV r6, VALVE1;
-		MOV r4, GPIO2 | GPIO_SETDATAOUT
-		SBBO r6, r4, 0, 4
-		MOV r5, 1
+	//If there is a change in direction, flip the control valve
+	QBEQ DIRSET, r2, 1
+	MOV r6, VALVE1;
+	MOV r4, GPIO2 | GPIO_SETDATAOUT
+	SBBO r6, r4, 0, 4
+	MOV r2, 1
 
-		JMP DIRSET
+	JMP DIRSET
 
-	POS1:
-		//If the valves are closed, there may be a direction change
-		QBNE DIRSET, r1, 0
+POS1:
+	//If the valves are closed (r1 = 0), there may be a direction change
+	QBNE DIRSET, r1, 0
 
-		//If there is a change in direction, flip the control valve
-		QBEQ DIRSET, r5, 0
-		MOV r6, VALVE1;
-		MOV r4, GPIO2 | GPIO_CLEARDATAOUT
-		SBBO r6, r4, 0, 4
-		MOV r5, 0
+	//If there is a change in direction, flip the control valve
+	QBEQ DIRSET, r2, 0
+	MOV r6, VALVE1;
+	MOV r4, GPIO2 | GPIO_CLEARDATAOUT
+	SBBO r6, r4, 0, 4
+	MOV r2, 0
 
-	DIRSET:
-		//If motor 1 is already where it needs to be, jump to motor 2
-		QBEQ MOTOR2, r1, r3
+DIRSET:
+	//If motor 1 is already where it needs to be, jump back to the loop start and check again
+	QBEQ LOOP1, r1, r3
 
-		//If motor 1 is less than the desired position, jump to DIRUP1, otherwise set DIR down and add a step
-		QBLE DIRUP1, r1, r3
+	//If motor 1 is less than the desired position, jump to DIRUP1, otherwise set DIR down and add a step
+	QBLE DIRUP1, r1, r3
 
-		MOV r3, DIR1;
-		MOV r4, GPIO1 | GPIO_SETDATAOUT
-		SBBO r3, r4, 0, 4
+	//Set DIR down
+	MOV r3, DIR1;
+	MOV r4, GPIO1 | GPIO_CLEARDATAOUT
+	SBBO r3, r4, 0, 4
 
-		ADD r1, r1, 1
+	//Add a step
+	ADD r1, r1, 1
 
-		JMP STEP1
+	JMP STEP1
 
-	DIRUP1:
-		//Set DIR up
-		MOV r3, DIR1;
-		MOV r4, GPIO1 | GPIO_CLEARDATAOUT
-		SBBO r3, r4, 0, 4
+DIRUP1:
+	//Set DIR up
+	MOV r3, DIR1;
+	MOV r4, GPIO1 | GPIO_SETDATAOUT
+	SBBO r3, r4, 0, 4
 
-		SUB r1, r1, 1
+	//Subtract a step
+	SUB r1, r1, 1
 
-	STEP1:
-		//Toggle stepper 1 STEP
-		MOV r3, STP1
-		XOR r30, r30, r3
+STEP1:
+	//Move the motor pair one step by toggling their STEP pin
+	MOV r3, STP1
+	XOR r30, r30, r3
 
-	MOTOR2:
-		LBCO r3, CONST_PRUDRAM, 4, 4
-
-		MOV r4, 1 << 31
-		AND r4, r3, r4
-		QBEQ POS2, r4, 0
-
-		SUB r3, r3, 1
-		NOT r3, r3
-
-	POS2:
-		QBEQ WAITLBL, r2, r3
-
-		QBLE DIRUP2, r2, r3
-
-		MOV r3, DIR2;
-		MOV r4, GPIO1 | GPIO_SETDATAOUT
-		SBBO r3, r4, 0, 4
-
-		ADD r2, r2, 1
-
-		JMP STEP2
-
-	DIRUP2:
-		MOV r3, DIR2;
-		MOV r4, GPIO1 | GPIO_CLEARDATAOUT
-		SBBO r3, r4, 0, 4
-
-		SUB r2, r2, 1
-
-	STEP2:
-		MOV r3, STP2
-		XOR r30, r30, r3
-
-	WAITLBL:
-		WAIT r3, 50000
-		JMP LOOP1
+	//Wait an arbitrary amount of time between steps
+	WAIT r3, 50000
+	JMP LOOP1
 
 HALT
 
