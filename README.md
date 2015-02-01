@@ -53,9 +53,12 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 - Add comments
 - Generalize functions
 - Merge the device tree overlays
-- Switch from needle-needle to needle-flow control
+- Add motor acceleration
+- Expand stepper.asm to control 12 steppers
+- Add in optical home switches
+- Closed loop motor control with the optical switches
 - Get rough position from accelerometer double integration
 - PID control
-- Connect to all seven accelegyrometors
-- Add motor acceleration
+- Connect to all seven accelegyrometors (use all three i2c devices asynchronously)
+- Add wave motion with ITTC
 
