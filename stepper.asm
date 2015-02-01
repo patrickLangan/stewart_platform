@@ -41,80 +41,47 @@ START:
 	SBBO r0, r1, #0x00, 4
 
 	//Zero the step position
-	MOV r1, 0
-
-	//Set the direction of the control valve down
-	MOV r2, 0
+	MOV r0, 0
 
 LOOP1:
 	//Get desired step position of motor pair 1
-	LBCO r3, CONST_PRUDRAM, 0, 4
+	LBCO r1, CONST_PRUDRAM, 0, 4
 
-	//Test if the desired position is positive or negitive
-	MOV r4, 1 << 31
-	AND r4, r3, r4
-	QBEQ POS1, r4, 0
+	//If the motor pair is already where it needs to be, loop until it isn't
+	QBEQ LOOP1, r0, r1
 
-	//Convert negitive number to positive
-	SUB r3, r3, 1
-	NOT r3, r3
+	//Get the desired control valve direction
+	LBCO r2, CONST_PRUDRAM, 24, 4
+	AND r2, r2, 1 << 0
 
-	//If the valves are closed (r1 = 0), there may be a direction change
-	QBNE DIRSET, r1, 0
-
-	//If there is a change in direction, flip the control valve
-	QBEQ DIRSET, r2, 1
-	MOV r6, VALVE1;
+	//Set the control valve direction
+	QBEQ CLRDATA, r2, 0
 	MOV r4, GPIO2 | GPIO_SETDATAOUT
-	SBBO r6, r4, 0, 4
-	MOV r2, 1
-
-	JMP DIRSET
-
-POS1:
-	//If the valves are closed (r1 = 0), there may be a direction change
-	QBNE DIRSET, r1, 0
-
-	//If there is a change in direction, flip the control valve
-	QBEQ DIRSET, r2, 0
-	MOV r6, VALVE1;
+	JMP SETGPIO
+CLRDATA:
 	MOV r4, GPIO2 | GPIO_CLEARDATAOUT
-	SBBO r6, r4, 0, 4
-	MOV r2, 0
-
-DIRSET:
-	//If motor 1 is already where it needs to be, jump back to the loop start and check again
-	QBEQ LOOP1, r1, r3
-
-	//If motor 1 is less than the desired position, jump to DIRUP1, otherwise set DIR down and add a step
-	QBLE DIRUP1, r1, r3
-
-	//Set DIR down
-	MOV r3, DIR1;
-	MOV r4, GPIO1 | GPIO_CLEARDATAOUT
+SETGPIO:
+	MOV r3, VALVE1;
 	SBBO r3, r4, 0, 4
 
-	//Add a step
-	ADD r1, r1, 1
+	//Set the motor direction
+	QBLT DIRUP, r0, r1
+	MOV r2, GPIO1 | GPIO_CLEARDATAOUT
+	ADD r0, r0, 1
+	JMP SETDIR
+DIRUP:
+	MOV r2, GPIO1 | GPIO_SETDATAOUT
+	SUB r0, r0, 1
+SETDIR:
+	MOV r1, DIR1;
+	SBBO r1, r2, 0, 4
 
-	JMP STEP1
-
-DIRUP1:
-	//Set DIR up
-	MOV r3, DIR1;
-	MOV r4, GPIO1 | GPIO_SETDATAOUT
-	SBBO r3, r4, 0, 4
-
-	//Subtract a step
-	SUB r1, r1, 1
-
-STEP1:
 	//Move the motor pair one step by toggling their STEP pin
-	MOV r3, STP1
-	XOR r30, r30, r3
+	MOV r1, STP1
+	XOR r30, r30, r1
 
 	//Wait an arbitrary amount of time between steps
-	WAIT r3, 50000
+	WAIT r1, 50000
 	JMP LOOP1
 
 HALT

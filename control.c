@@ -207,12 +207,15 @@ int main (int argc, char **argv)
 		return 1;
 	}
 
+	pruDataMem_int[6] = 0;
 	while (1) {
 		int joystick = 0;
 
+		//Average of 100 readings from the joystick
 		for (i = 0; i < 100; i++)
 			joystick += joystickRead (joystickFile);
 
+		//Throws out small values (to avoid jittery motion around zero) and scales up or down joystick readings
 		if (abs (joystick) < 1000)
 			joystick = 0;
 		else if (joystick < 0)
@@ -220,8 +223,17 @@ int main (int argc, char **argv)
 		else
 			joystick *= JOYSTICK_SCALE_DOWN;
 
-		pruDataMem_int[0] = joystick;
-		pruDataMem_int[1] = joystick;
+		//Sets positions for the 6 motor pairs (replace joystick with motorPos[i])
+		for (i = 0; i < 6; i++)
+			pruDataMem_int[i] = abs (joystick);
+
+		//Sets directions for the six control valves (replace joystick with motorPos[i])
+		for (i = 0; i < 6; i++) {
+			if (joystick < 0)
+				pruDataMem_int[6] |= 1 << i;
+			else if (joystick > 0)
+				pruDataMem_int[6] &= ~(1 << i);
+		}
 	}
 
 shutdown:
