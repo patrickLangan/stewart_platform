@@ -76,12 +76,15 @@ SETDIR:
 	MOV r1, DIR1;
 	SBBO r1, r2, 0, 4
 
+	//Wait an arbitrary amount of time between steps (half before and half after stepping)
+	WAIT r1, 25000
+
 	//Move the motor pair one step by toggling their STEP pin
 	MOV r1, STP1
 	XOR r30, r30, r1
 
-	//Wait an arbitrary amount of time between steps
-	WAIT r1, 50000
+	//Second half of the wait time between steps
+	WAIT r1, 25000
 	JMP LOOP1
 
 HALT
