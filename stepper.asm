@@ -90,14 +90,20 @@ START:
 	WRITERAM r0, 0b010000000000000000000000000000
 	WRITERAM r0, 0b100000000000000000000000000000
 
-	//Zero the step position
-	MOV r0, 0
+	//Step Positions
+	WRITERAM r0, 0 //196
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
 
 LOOP1:
 	//Get desired step position of motor pair 1
 	LBCO r1, CONST_PRUDRAM, 0, 4
 
 	//If the motor pair is already where it needs to be, loop until it isn't
+        LBCO r0, CONST_PRUDRAM, 196, 4 //Step Position
 	QBEQ LOOP1, r0, r1
 
 	//Get the desired control valve direction
@@ -111,8 +117,7 @@ LOOP1:
 CLRDATA:
 	MOV r4, GPIO2 | GPIO_CLEARDATAOUT
 SETGPIO:
-	MOV r5, 124
-        LBCO r3, CONST_PRUDRAM, r5, 4
+        LBCO r3, CONST_PRUDRAM, 124, 4 //Control Valve
 	SBBO r3, r4, 0, 4
 
 	//Set the motor direction
@@ -124,13 +129,12 @@ DIRUP:
 	MOV r2, GPIO1 | GPIO_SETDATAOUT
 	SUB r0, r0, 1
 SETDIR:
-	MOV r3, 76
-        LBCO r1, CONST_PRUDRAM, r3, 4
+        SBCO r0, CONST_PRUDRAM, 196, 4 //Step Position
+        LBCO r1, CONST_PRUDRAM, 76, 4 //Motor DIR
 	SBBO r1, r2, 0, 4
 
 	//Move the motor pair one step by toggling their STEP pin
-	MOV r2, 28
-        LBCO r1, CONST_PRUDRAM, r2, 4
+        LBCO r1, CONST_PRUDRAM, 28, 4 //Motor STEP
 	XOR r30, r30, r1
 
 	//Wait an arbitrary amount of time between steps
