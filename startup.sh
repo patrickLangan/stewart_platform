@@ -33,26 +33,41 @@ cat /sys/devices/bone_capemgr.*/slots
 
 sleep 1
 
-enableGpio 38 "out" 0
-enableGpio 39 "out" 0
+#Motor DIR
+enableGpio 32 "out" 0
+enableGpio 33 "out" 0
 enableGpio 34 "out" 0
 enableGpio 35 "out" 0
-enableGpio 45 "out" 0
-enableGpio 44 "out" 0
-enableGpio 47 "out" 0
-enableGpio 46 "out" 0
-enableGpio 37 "out" 0
 enableGpio 36 "out" 0
-enableGpio 33 "out" 0
-enableGpio 32 "out" 0
-enableGpio 61 "out" 0
+enableGpio 37 "out" 0
+enableGpio 38 "out" 0
+enableGpio 39 "out" 0
+enableGpio 44 "out" 0
+enableGpio 45 "out" 0
+enableGpio 46 "out" 0
+enableGpio 47 "out" 0
 
-enableGpio 65  "out" 0
-enableGpio 89  "out" 0
-enableGpio 81  "out" 0
-enableGpio 80  "out" 0
-enableGpio 78  "out" 0
-enableGpio 79  "out" 0
+#Control valve
+enableGpio 65 "out" 0
+enableGpio 66 "out" 0
+enableGpio 67 "out" 0
+enableGpio 68 "out" 0
+enableGpio 69 "out" 0
+enableGpio 78 "out" 0
+
+#Motor home switch
+enableGpio 8 "in"
+enableGpio 9 "in"
+enableGpio 10 "in"
+enableGpio 11 "in"
+enableGpio 22 "in"
+enableGpio 23 "in"
+enableGpio 48 "in"
+enableGpio 49 "in"
+enableGpio 50 "in"
+enableGpio 51 "in"
+enableGpio 60 "in"
+enableGpio 61 "in"
 
 cat /sys/kernel/debug/gpio
 
