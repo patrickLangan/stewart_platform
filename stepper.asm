@@ -90,7 +90,8 @@ START:
 	WRITERAM r0, 0b010000000000000000000000000000
 	WRITERAM r0, 0b100000000000000000000000000000
 
-	//Step Positions
+	//Initialize variables
+	//Motor Pair Position
 	WRITERAM r0, 0 //196
 	WRITERAM r0, 0
 	WRITERAM r0, 0
@@ -102,10 +103,31 @@ LOOP1:
 	//Get desired step position of motor pair 1
 	LBCO r1, CONST_PRUDRAM, 0, 4
 
-	//If the motor pair is already where it needs to be, loop until it isn't
-        LBCO r0, CONST_PRUDRAM, 196, 4 //Step Position
-	QBEQ LOOP1, r0, r1
+	//If the motor pair isn't yet where it needs to be, jump to MOVE
+        LBCO r0, CONST_PRUDRAM, 196, 4 //Motor Pair Position
+	QBNE MOVE, r0, r1
 
+	//If the motor pair should be at zero, check with the optical home switches
+	QBNE LOOP1, r0, 0
+	WAIT r0, 50000
+	MOV r1, GPIO0 | GPIO_DATAIN
+        LBBO r0, r1, 0, 4
+        LBCO r1, CONST_PRUDRAM, 148, 4 //Home Switch
+        AND r1, r1, r0
+        QBNE NXTHOME, r1, 0 //If the home switch doesn't read 0 the motor is closed.  Otherwise step the motor.
+        LBCO r1, CONST_PRUDRAM, 28, 4 //Motor STEP
+	XOR r30, r30, r1
+NXTHOME:
+        LBCO r1, CONST_PRUDRAM, 152, 4 //Home Switch
+        AND r1, r1, r0
+        QBNE STEPWAIT, r1, 0 //If the home switch doesn't read 0 the motor is closed.  Otherwise step the motor.
+        LBCO r1, CONST_PRUDRAM, 32, 4 //Motor STEP
+	XOR r30, r30, r1
+STEPWAIT:
+	WAIT r0, 50000
+	JMP LOOP1
+
+MOVE:
 	//Get the desired control valve direction
 	LBCO r2, CONST_PRUDRAM, 24, 4
 	AND r2, r2, 1 << 0
@@ -129,16 +151,20 @@ DIRUP:
 	MOV r2, GPIO1 | GPIO_SETDATAOUT
 	SUB r0, r0, 1
 SETDIR:
-        SBCO r0, CONST_PRUDRAM, 196, 4 //Step Position
+        SBCO r0, CONST_PRUDRAM, 196, 4 //Motor Pair Position
         LBCO r1, CONST_PRUDRAM, 76, 4 //Motor DIR
 	SBBO r1, r2, 0, 4
 
-	//Move the motor pair one step by toggling their STEP pin
+	WAIT r1, 30000 //Wait an arbitrary amount of time between steps
+
+	//Move both motors of the pair one step by toggling their STEP pins
         LBCO r1, CONST_PRUDRAM, 28, 4 //Motor STEP
 	XOR r30, r30, r1
+        LBCO r1, CONST_PRUDRAM, 32, 4 //Motor STEP
+	XOR r30, r30, r1
 
-	//Wait an arbitrary amount of time between steps
-	WAIT r1, 50000
+	WAIT r1, 30000 //Wait an arbitrary amount of time between steps
+
 	JMP LOOP1
 
 HALT
