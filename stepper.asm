@@ -99,7 +99,7 @@ START:
 	WRITERAM r0, 0
 	WRITERAM r0, 0
 	//Last Home Switch
-	WRITERAM r0, 1 //220
+	WRITERAM r0, 0 //220
 	//Rotation Number
 	WRITERAM r0, 0 //224
 	WRITERAM r0, 0
@@ -114,19 +114,21 @@ START:
 	WRITERAM r0, 0
 	WRITERAM r0, 0
 
-	//Set the initial motor positions and store the initial home switch values
+
+	//Store the initial home switch values and motor positions
 	MOV r1, GPIO0 | GPIO_DATAIN
         LBBO r0, r1, 0, 4
         SBCO r0, CONST_PRUDRAM, 220, 4 //Last Home Switch
+	MOV r2, 1
         LBCO r1, CONST_PRUDRAM, 148, 4 //Home Switch
         AND r1, r1, r0
         QBNE NXTINIT, r1, 0 //If the home switch reads zero the valve isn't closed
-        SBCO 1, CONST_PRUDRAM, 224, 4 //Rotation Number
+        SBCO r2, CONST_PRUDRAM, 224, 4 //Rotation Number
 NXTINIT:
         LBCO r1, CONST_PRUDRAM, 152, 4 //Home Switch
         AND r1, r1, r0
         QBNE LOOP1, r1, 0 //If the home switch reads zero the valve isn't closed
-        SBCO 1, CONST_PRUDRAM, 228, 4 //Rotation Number
+        SBCO r2, CONST_PRUDRAM, 228, 4 //Rotation Number
 
 LOOP1:
 	//Get desired step position of motor pair 1
@@ -198,7 +200,7 @@ SETDIR:
 	WAIT r1, 70000 //Wait an arbitrary amount of time between steps
 
 CHKHOME:
-	//Look at the home switch to see if a rotation has occurred
+	//Look at the home switches to see if any rotations have occurred
 	MOV r1, GPIO0 | GPIO_DATAIN
         LBBO r0, r1, 0, 4
         LBCO r1, CONST_PRUDRAM, 148, 4 //Home Switch
