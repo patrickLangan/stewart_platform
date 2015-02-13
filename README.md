@@ -8,7 +8,6 @@ pneumaticTests
 - Merge the device tree overlays
 - Add motor acceleration
 - Expand stepper.asm to control 12 steppers
-- Add in optical home switches
 - Joystick control of entire platform
 - Add in optical length sensors
 - PID control
