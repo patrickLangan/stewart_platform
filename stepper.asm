@@ -12,7 +12,7 @@
 #define GPIO_SETDATAOUT		0x194
 
 #define CONST_PRUDRAM C24
-#define CTBIR_1 0x22024
+#define CTBIR_1 0x22424
 
 .macro WRITERAM
 .mparam addr, gpio
@@ -98,6 +98,35 @@ START:
 	WRITERAM r0, 0
 	WRITERAM r0, 0
 	WRITERAM r0, 0
+	//Last Home Switch
+	WRITERAM r0, 1 //220
+	//Rotation Number
+	WRITERAM r0, 0 //224
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+	WRITERAM r0, 0
+
+	//Set the initial motor positions and store the initial home switch values
+	MOV r1, GPIO0 | GPIO_DATAIN
+        LBBO r0, r1, 0, 4
+        SBCO r0, CONST_PRUDRAM, 220, 4 //Last Home Switch
+        LBCO r1, CONST_PRUDRAM, 148, 4 //Home Switch
+        AND r1, r1, r0
+        QBNE NXTINIT, r1, 0 //If the home switch reads zero the valve isn't closed
+        SBCO 1, CONST_PRUDRAM, 224, 4 //Rotation Number
+NXTINIT:
+        LBCO r1, CONST_PRUDRAM, 152, 4 //Home Switch
+        AND r1, r1, r0
+        QBNE LOOP1, r1, 0 //If the home switch reads zero the valve isn't closed
+        SBCO 1, CONST_PRUDRAM, 228, 4 //Rotation Number
 
 LOOP1:
 	//Get desired step position of motor pair 1
@@ -107,25 +136,26 @@ LOOP1:
         LBCO r0, CONST_PRUDRAM, 196, 4 //Motor Pair Position
 	QBNE MOVE, r0, r1
 
-	//If the motor pair should be at zero, check with the optical home switches
-	QBNE LOOP1, r0, 0
-	WAIT r0, 50000
-	MOV r1, GPIO0 | GPIO_DATAIN
-        LBBO r0, r1, 0, 4
-        LBCO r1, CONST_PRUDRAM, 148, 4 //Home Switch
-        AND r1, r1, r0
-        QBNE NXTHOME, r1, 0 //If the home switch doesn't read 0 the motor is closed.  Otherwise step the motor.
+	//If the motor pair should be at zero, make sure it is and fix any offending motors
+	QBNE LOOP1, r1, 0
+	//Set the motor directions to close the valves
+	MOV r2, GPIO1 | GPIO_SETDATAOUT
+        LBCO r1, CONST_PRUDRAM, 76, 4 //Motor DIR
+	SBBO r1, r2, 0, 4
+	MOV r7, 0 //Store step direction
+	WAIT r0, 70000
+	LBCO r1, CONST_PRUDRAM, 224, 4 //Rotation Number
+	QBEQ NXTHOME, r1, 0 //If rotation number isn't zero step the motor
         LBCO r1, CONST_PRUDRAM, 28, 4 //Motor STEP
 	XOR r30, r30, r1
 NXTHOME:
-        LBCO r1, CONST_PRUDRAM, 152, 4 //Home Switch
-        AND r1, r1, r0
-        QBNE STEPWAIT, r1, 0 //If the home switch doesn't read 0 the motor is closed.  Otherwise step the motor.
+	LBCO r1, CONST_PRUDRAM, 228, 4 //Rotation Number
+	QBEQ STEPWAIT, r1, 0 //If rotation number isn't zero step the motor
         LBCO r1, CONST_PRUDRAM, 32, 4 //Motor STEP
 	XOR r30, r30, r1
 STEPWAIT:
-	WAIT r0, 50000
-	JMP LOOP1
+	WAIT r0, 70000
+	JMP CHKHOME
 
 MOVE:
 	//Get the desired control valve direction
@@ -146,16 +176,18 @@ SETGPIO:
 	QBLT DIRUP, r0, r1
 	MOV r2, GPIO1 | GPIO_CLEARDATAOUT
 	ADD r0, r0, 1
+	MOV r7, 1 //Store step direction
 	JMP SETDIR
 DIRUP:
 	MOV r2, GPIO1 | GPIO_SETDATAOUT
 	SUB r0, r0, 1
+	MOV r7, 0 //Store step direction
 SETDIR:
         SBCO r0, CONST_PRUDRAM, 196, 4 //Motor Pair Position
         LBCO r1, CONST_PRUDRAM, 76, 4 //Motor DIR
 	SBBO r1, r2, 0, 4
 
-	WAIT r1, 30000 //Wait an arbitrary amount of time between steps
+	WAIT r1, 70000 //Wait an arbitrary amount of time between steps
 
 	//Move both motors of the pair one step by toggling their STEP pins
         LBCO r1, CONST_PRUDRAM, 28, 4 //Motor STEP
@@ -163,7 +195,42 @@ SETDIR:
         LBCO r1, CONST_PRUDRAM, 32, 4 //Motor STEP
 	XOR r30, r30, r1
 
-	WAIT r1, 30000 //Wait an arbitrary amount of time between steps
+	WAIT r1, 70000 //Wait an arbitrary amount of time between steps
+
+CHKHOME:
+	//Look at the home switch to see if a rotation has occurred
+	MOV r1, GPIO0 | GPIO_DATAIN
+        LBBO r0, r1, 0, 4
+        LBCO r1, CONST_PRUDRAM, 148, 4 //Home Switch
+        LBCO r2, CONST_PRUDRAM, 220, 4 //Last Home Switch
+        AND r2, r2, r1
+        AND r1, r1, r0
+        QBEQ NXTROT, r1, r2 //If the current and last home switch readings are different, update the motor rotation
+        LBCO r1, CONST_PRUDRAM, 224, 4 //Rotation Number
+	QBEQ NEG1, r7, 0
+	ADD r1, r1, 1
+	JMP POS1
+NEG1:
+	SUB r1, r1, 1
+POS1:
+        SBCO r1, CONST_PRUDRAM, 224, 4 //Rotation Number
+NXTROT:
+        LBCO r1, CONST_PRUDRAM, 152, 4 //Home Switch
+        LBCO r2, CONST_PRUDRAM, 220, 4 //Last Home Switch
+        AND r2, r2, r1
+        AND r1, r1, r0
+        QBEQ STRLAST, r1, r2 //If the current and last home switch readings are different, update the motor rotation
+        LBCO r1, CONST_PRUDRAM, 228, 4 //Rotation Number
+	QBEQ NEG2, r7, 0
+	ADD r1, r1, 1
+	JMP POS2
+NEG2:
+	SUB r1, r1, 1
+POS2:
+        SBCO r1, CONST_PRUDRAM, 228, 4 //Rotation Number
+
+STRLAST:
+        SBCO r0, CONST_PRUDRAM, 220, 4 //Last Home Switch
 
 	JMP LOOP1
 
