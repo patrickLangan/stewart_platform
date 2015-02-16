@@ -53,25 +53,6 @@ float gettimefromfunction (struct timeval startTime)
 	return ((float)(curTime.tv_sec - startTime.tv_sec) * 1e3) + ((float)(curTime.tv_usec - startTime.tv_usec) * 1e-3);
 }
 
-void printBinary (int num)
-{
-	int i;
-
-	for (i = 0; i < 33; i++) {
-		printf ("%d", num & 1);
-		num >>= 1;
-	}
-	puts ("");
-}
-
-int convert16to32bit (int num)
-{
-	if (0b1000000000000000 & num)
-		num |= 0b11111111111111110000000000000000;
-
-	return num;
-}
-
 int pruOpen (void)
 {
 	tpruss_intc_initdata intc = PRUSS_INTC_INITDATA;
@@ -116,62 +97,6 @@ int joystickRead (FILE *file)
 	value -= 960;
 
 	return value;
-}
-
-int accelInit (void)
-{
-	int handle;
-	char buffer[2];
-
-	handle = i2c_open (1, 0x53);
-
-	i2c_write_byte (handle, 0x00);
-	i2c_read (handle, buffer, 1);
-	if ((int)*buffer != 0xE5) {
-		fprintf (stderr, "Could not connect to accelerometer\n");
-		return -1;
-	}
-
-	buffer[0] = 0x31;
-	buffer[1] = 0x00;
-	i2c_write (handle, buffer, 2);
-
-	buffer[0] = 0x2D;
-	buffer[1] = 0x08;
-	i2c_write (handle, buffer, 2);
-
-	return handle;
-}
-
-struct vector accelRead (int handle)
-{
-	char buffer[6];
-	int rawX, rawY, rawZ;
-	struct vector accel;
-
-	i2c_write_byte (handle, 0x32);
-	i2c_read (handle, buffer, 6);
-	rawX = ((int)buffer[1] << 8) | (int)buffer[0];
-	rawY = ((int)buffer[3] << 8) | (int)buffer[2];
-	rawZ = ((int)buffer[5] << 8) | (int)buffer[4];
-
-	accel.x = (float)convert16to32bit (rawX) * ACCEL_SCALE;
-	accel.y = (float)convert16to32bit (rawY) * ACCEL_SCALE;
-	accel.z = (float)convert16to32bit (rawZ) * ACCEL_SCALE;
-
-	return (struct vector) {accel.x, accel.y, accel.z};
-}
-
-float singleAccelRead (int handle, int address)
-{
-	char buffer[2];
-	int raw;
-
-	i2c_write_byte (handle, address);
-	i2c_read (handle, buffer, 2);
-	raw = ((int)buffer[1] << 8) | (int)buffer[0];
-
-	return (float)convert16to32bit (raw) * ACCEL_SCALE;
 }
 
 float pressureRead (int handle)
@@ -223,8 +148,8 @@ int main (int argc, char **argv)
 		else
 			joystick *= JOYSTICK_SCALE_DOWN;
 
-		//Sets positions for the 6 motor pairs (replace joystick with motorPos[i])
-		for (i = 0; i < 6; i++)
+		//Sets positions for the 12 motors (replace joystick with motorPos[i])
+		for (i = 0; i < 12; i++)
 			pruDataMem_int[i] = abs (joystick);
 
 		//Sets directions for the six control valves (replace joystick with motorPos[i])
@@ -243,5 +168,4 @@ shutdown:
 
 	return 0;
 }
-
 
