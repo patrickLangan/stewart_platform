@@ -4,13 +4,10 @@ pneumaticTests
 ##TODO
 - Error checking, and handling
 - Add comments
-- Generalize functions
-- Merge the device tree overlays
-- Add motor acceleration
-- Add the home switches back in
-- Joystick control of entire platform
 - Add in optical length sensors
+- Add in rotary encoders
 - PID control
+- Load motion data from file
 
 
 ##Wiring
@@ -60,7 +57,7 @@ pneumaticTests
 		P8_37	gpio2_14	gpio78	0x0c0
 
 	Rotary Encoder - GPIO0, GPIO1, and GPIO2
-		P9_42   gpio0_7         gpio7   0x164
+		P9_42   gpio0_7		gpio7   0x164
 		P8_35   gpio0_8		gpio8   0x0d0
 		P8_33   gpio0_9		gpio9   0x0d4
 		P8_31   gpio0_10	gpio10  0x0d8
@@ -116,6 +113,18 @@ After booting into the SD card you can make changes similar to how the HDMI was 
 - Uncomment or add: uenvcmd=run mmcreset;
 - umount /mnt
 - sudo poweroff
+
+###Disabling i2c2
+Disabling i2c2 frees up pins P9.19-20.  To do so:
+- git clone https://github.com/derekmolloy/boneDeviceTree.git
+- cd boneDeviceTree/DTSource3.8.13/
+- vim am335x-bone-common.dtsi
+- Uncomment line 404: pinctrl-0 = <&i2c2_pins>;
+- dtc -O dtb -o am335x-boneblack.dtb -b 0 -@ am335x-boneblack.dts
+- sudo mv /boot/uboot/dtbs/am335x-boneblack.dtb /boot/uboot/dtbs/am335x-boneblack.orig.dtb
+- sudo mv am335x-boneblack.dtb /boot/uboot/dtbs/
+- sudo poweroff
+(instructions from http://www.embedded-things.com/bbb/enable-canbus-on-the-beaglebone-black/)
 
 ###Setting up and running the control program
 - git clone https://github.com/patrickLangan/pneumaticTests.git
