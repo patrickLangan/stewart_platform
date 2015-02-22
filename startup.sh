@@ -26,8 +26,8 @@ enableGpio(){
 
 echo stepper-pru > /sys/devices/bone_capemgr.*/slots
 echo gpio-enable > /sys/devices/bone_capemgr.*/slots
-echo i2c1-400hz > /sys/devices/bone_capemgr.*/slots
-echo i2c2-400hz > /sys/devices/bone_capemgr.*/slots
+echo SPI0 > /sys/devices/bone_capemgr.*/slots
+echo SPI1 > /sys/devices/bone_capemgr.*/slots
 echo cape-bone-iio > /sys/devices/bone_capemgr.*/slots
 cat /sys/devices/bone_capemgr.*/slots
 
@@ -55,19 +55,36 @@ enableGpio 68 "out" 0
 enableGpio 69 "out" 0
 enableGpio 78 "out" 0
 
-#Motor home switch
-enableGpio 8 "in"
-enableGpio 9 "in"
+#Rotary encoder
+enableGpio 7  "in"
+enableGpio 8  "in"
+enableGpio 9  "in"
 enableGpio 10 "in"
 enableGpio 11 "in"
+enableGpio 12 "in"
+enableGpio 13 "in"
+enableGpio 14 "in"
+enableGpio 15 "in"
+enableGpio 20 "in"
 enableGpio 22 "in"
 enableGpio 23 "in"
+enableGpio 26 "in"
 enableGpio 48 "in"
 enableGpio 49 "in"
 enableGpio 50 "in"
 enableGpio 51 "in"
 enableGpio 60 "in"
 enableGpio 61 "in"
+enableGpio 63 "in"
+enableGpio 79 "in"
+enableGpio 80 "in"
+enableGpio 81 "in"
+enableGpio 89 "in"
+
+#SPI CS
+enableGpio 27 "out" 0
+enableGpio 30 "out" 0
+enableGpio 31 "out" 0
 
 cat /sys/kernel/debug/gpio
 
