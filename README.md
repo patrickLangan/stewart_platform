@@ -14,13 +14,15 @@ pneumaticTests
 
 
 ##Wiring
-	i2c-1
-		Clock:	P9_19
-		Data:	P9_20
+	spi-0
+		Clock:	P9_22
+		Data1:	P9_18 (MOSI)
+		Data0:	P9_21 (MISO)
 
-	i2c-2
-		Clock:	P9_17
-		Data:	P9_18
+	spi-1
+		Clock:	P9_31
+		Data1:	P9_30 (MOSI)
+		Data0:	P9_29 (MISO)
 
 	Motor STEP - PRU1
 		P8_45	pru_0
@@ -34,7 +36,6 @@ pneumaticTests
 		P8_27	pru_8
 		P8_28	pru_10
 		P8_21	pru_12
-		P8_20	pru_13
 
 	Motor DIR - GPIO1
 		P8_25	gpio1_0		gpio32	0x000
@@ -58,20 +59,39 @@ pneumaticTests
 		P8_9	gpio2_5		gpio69	0x09c
 		P8_37	gpio2_14	gpio78	0x0c0
 
-	Home Switch - GPIO0 and GPIO1
-		P8_35	gpio0_8		gpio8	0x0d0
-		P8_33	gpio0_9		gpio9	0x0d4
-		P8_31	gpio0_10	gpio10	0x0d8
-		P8_32	gpio0_11	gpio11	0x0dc
-		P8_19	gpio0_22	gpio22	0x020
-		P8_13	gpio0_23	gpio23	0x024
+	Rotary Encoder - GPIO0, GPIO1, and GPIO2
+		P9_42   gpio0_7         gpio7   0x164
+		P8_35   gpio0_8		gpio8   0x0d0
+		P8_33   gpio0_9		gpio9   0x0d4
+		P8_31   gpio0_10	gpio10  0x0d8
+		P8_32   gpio0_11	gpio11  0x0dc
+		P9_20   gpio0_12        gpio12  0x178
+		P9_19   gpio0_13        gpio13  0x17c
+		P9_26   gpio0_14        gpio14  0x180
+		P9_24   gpio0_15        gpio15  0x184
+		P9_41   gpio0_20        gpio20  0x1b4
+		P8_19   gpio0_22	gpio22  0x020
+		P8_13   gpio0_23	gpio23  0x024
+		P8_14   gpio0_26        gpio26  0x028
 
-		P9_15	gpio1_16	gpio48	0x040
-		P9_23	gpio1_17	gpio49	0x044
-		P9_14	gpio1_18	gpio50	0x048
-		P9_16	gpio1_19	gpio51	0x04c
-		P9_12	gpio1_28	gpio60	0x078
-		P8_26	gpio1_29	gpio61	0x07c
+		P9_15   gpio1_16	gpio48  0x040
+		P9_23   gpio1_17	gpio49  0x044
+		P9_14   gpio1_18	gpio50  0x048
+		P9_16   gpio1_19	gpio51  0x04c
+		P9_12   gpio1_28	gpio60  0x078
+		P8_26   gpio1_29	gpio61  0x07c
+		P8_20   gpio1_31        gpio63  0x084
+
+		P8_38   gpio2_15        gpio79  0x0c4
+		P8_36   gpio2_16        gpio80  0x0c8
+		P8_34   gpio2_17        gpio81  0x0cc
+		P8_30   gpio2_25        gpio89  0x0ec
+
+
+	SPI CS - GPIO0
+		P8_17   gpio0_27        gpio27  0x02c
+		P9_11   gpio0_30        gpio30  0x070
+		P9_13   gpio0_31        gpio31  0x074
 
 
 ##Beaglebone Black setup
