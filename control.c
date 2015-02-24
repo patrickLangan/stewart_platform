@@ -6,6 +6,14 @@
 #include <prussdrv.h>
 #include <pruss_intc_mapping.h>
 
+#include <stdint.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <linux/spi/spidev.h>
+
+static int spiBits = 8;
+static int spiSpeed = 500000;
+
 static void *pruDataMem;
 static unsigned int *pruDataMem_int;
 
@@ -68,9 +76,40 @@ int joystickRead (FILE *file)
 	return value;
 }
 
+void spiInit (char *file, int *fd)
+{
+	*fd = open (file, O_RDWR);
+	ioctl (*fd, SPI_IOC_WR_BITS_PER_WORD, &spiBits);
+	ioctl (*fd, SPI_IOC_RD_BITS_PER_WORD, &spiBits);
+	ioctl (*fd, SPI_IOC_WR_MAX_SPEED_HZ, &spiSpeed);
+	ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
+}
+
+int spiRead (int fd, int cs)
+{
+	uint8_t tx[2] = {1, 1};
+	uint8_t rx[2];
+	struct spi_ioc_transfer tr;
+
+	tr.tx_buf = (unsigned long)tx;
+	tr.rx_buf = (unsigned long)rx;
+	tr.len = 2;
+	tr.speed_hz = spiSpeed;
+	tr.bits_per_word = spiBits;
+
+	ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
+
+	return (rx[0] << 8) | rx[1];
+}
+
 int main (int argc, char **argv)
 {
 	FILE *joystickFile;
+
+	int spiFile1;
+	int spiFile2;
+	int lengthSensor[6];
+
 	int i;
 
 	if (setjmp (buf))
@@ -78,7 +117,7 @@ int main (int argc, char **argv)
 
 	signal (SIGINT, signalCatcher);
 
-	joystickFile = fopen ("/sys/devices/ocp.3/helper.13/AIN1", "r");
+	joystickFile = fopen ("/sys/devices/ocp.2/helper.13/AIN1", "r");
 
 	pruInit ();
 
@@ -90,10 +129,17 @@ int main (int argc, char **argv)
 		return 1;
 	}
 
+	spiInit ("/dev/spidev1.0", &spiFile1);
+	spiInit ("/dev/spidev2.0", &spiFile2);
+
 shutdown:
 
 	fclose (joystickFile);
+
 	pruAbscond ();
+
+	close (spiFile1);
+	close (spiFile2);
 
 	return 0;
 }
