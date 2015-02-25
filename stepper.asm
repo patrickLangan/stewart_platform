@@ -20,10 +20,13 @@
 #define MOTOR_STEP	52
 #define MOTOR_DIR	100
 #define CONTROL_VALVE	148
-#define HOME_SWITCH	172
-#define TIME_STEP	220
-#define MOTOR_TIME	268
-#define STEP_POSITION	316
+#define ROTARY_ENCODER1	172
+#define ROTARY_ENCODER2	220
+#define TIME_STEP	268
+#define MOTOR_TIME	316
+#define STEP_POSITION	364
+#define LAST_ENCODER1	412
+#define LAST_ENCODER2	460
 
 .macro WRITERAM
 .mparam addr, reg, value
@@ -39,6 +42,19 @@
         LBCO out, CONST_PRUDRAM, reg, 4
 .endm
 
+.macro READGPIO
+.mparam pin, reg, out
+	MOV reg, GPIO0 | GPIO_DATAIN
+        LBBO out, reg, 0, 4
+
+	QBBS ON, out, pin
+	MOV out, 0
+	JMP OFF
+ON:
+	MOV out, 1
+OFF:
+.endm
+
 .macro WAIT
 .mparam reg, clicks
 	MOV reg, clicks
@@ -49,13 +65,13 @@ LOOP1:
 
 .macro TIMEADD
 .mparam reg1, reg2, time
-	MOV reg1, 268
+	MOV reg1, 316
 LOOP1:
         LBCO reg2, CONST_PRUDRAM, reg1, 4 //Motor Time
 	ADD reg2, reg2, time
         SBCO reg2, CONST_PRUDRAM, reg1, 4 //Motor Time
 	ADD reg1, reg1, 4
-	MOV reg2, 316
+	MOV reg2, 364
 	QBNE LOOP1, reg1, reg2
 .endm
 
@@ -105,19 +121,32 @@ START:
 	WRITERAM r0, r1, 0b000000000010000
 	WRITERAM r0, r1, 0b000000000100000
 	WRITERAM r0, r1, 0b100000000000000
-	//Home Switch
-	WRITERAM r0, r1, 0b000000000000000000000100000000
-	WRITERAM r0, r1, 0b000000000000000000001000000000
-	WRITERAM r0, r1, 0b000000000000000000010000000000
-	WRITERAM r0, r1, 0b000000000000000000100000000000
-	WRITERAM r0, r1, 0b000000010000000000000000000000
-	WRITERAM r0, r1, 0b000000100000000000000000000000
-	WRITERAM r0, r1, 0b000000000000010000000000000000
-	WRITERAM r0, r1, 0b000000000000100000000000000000
-	WRITERAM r0, r1, 0b000000000001000000000000000000
-	WRITERAM r0, r1, 0b000000000010000000000000000000
-	WRITERAM r0, r1, 0b010000000000000000000000000000
-	WRITERAM r0, r1, 0b100000000000000000000000000000
+	//Rotary Encoder 1
+	WRITERAM r0, r1, 7
+	WRITERAM r0, r1, 8
+	WRITERAM r0, r1, 9
+	WRITERAM r0, r1, 10
+	WRITERAM r0, r1, 11
+	WRITERAM r0, r1, 12
+	WRITERAM r0, r1, 13
+	WRITERAM r0, r1, 14
+	WRITERAM r0, r1, 15
+	WRITERAM r0, r1, 20
+	WRITERAM r0, r1, 22
+	//Rotary Encoder 2
+	WRITERAM r0, r1, 23
+	WRITERAM r0, r1, 26
+	WRITERAM r0, r1, 16
+	WRITERAM r0, r1, 17
+	WRITERAM r0, r1, 18
+	WRITERAM r0, r1, 19
+	WRITERAM r0, r1, 28
+	WRITERAM r0, r1, 29
+	WRITERAM r0, r1, 31
+	WRITERAM r0, r1, 15
+	WRITERAM r0, r1, 16
+	WRITERAM r0, r1, 17
+	WRITERAM r0, r1, 25
 
 	//Initialize variables
 	//Time Step
@@ -159,9 +188,36 @@ START:
 	WRITERAM r0, r1, 0
 	WRITERAM r0, r1, 0
 	WRITERAM r0, r1, 0
+	//Last Encoder 1
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	//Last Encoder 2
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+	WRITERAM r0, r1, 0
+
+LOOP1:
 
 	//This loop goes through all 12 motors and steps them asynchronously
-LOOP1:
 	MOV r0, 0 //Index
 LOOP2:
 	//Check if it's time to step the motor
@@ -185,7 +241,7 @@ DIRDOWN:
         MOV r2, GPIO1 | GPIO_SETDATAOUT
         SUB r3, r3, 1
 DIRUP:
-        SBCO r3, CONST_PRUDRAM, r1, 4 //Step Position
+        //SBCO r3, CONST_PRUDRAM, r1, 4 //Step Position
 	READRAM MOTOR_DIR, r0, r3, r1
         SBBO r1, r2, 0, 4
 
@@ -202,9 +258,47 @@ NXTMOT:
 	MOV r3, LOOP_TIME
 	TIMEADD r1, r2, r3
 
-	//Increment in index and move onto the next motor
+	//Increment index and move onto the next motor
 	ADD r0, r0, 4
 	QBNE LOOP2, r0, 48
+
+	//This loop goes through six of the rotary encoders and updates their positions as nesecary
+	MOV r0, 0 //Index
+LOOP3:
+	//Loads the previous encoder values and position
+	READRAM ROTARY_ENCODER1, r0, r2, r1
+	READGPIO r1, r3, r2
+	READRAM ROTARY_ENCODER2, r0, r3, r1
+	READGPIO r1, r4, r3
+	READRAM STEP_POSITION, r0, r6, r7
+
+	//Looks for rising or falling edges in each channel.
+	//Whether to inc or dec depends the value of the other channel.
+	READRAM LAST_ENCODER1, r0, r4, r1
+	QBEQ NXTCHAN, r2, r1
+	QBEQ INC, r2, r3
+	SUB r7, r7, 1
+	JMP NXTCHAN
+INC:
+	ADD r7, r7, 1
+NXTCHAN:
+	READRAM LAST_ENCODER2, r0, r5, r1
+	QBEQ OUT, r3, r1
+	QBEQ DEC, r3, r2
+	ADD r7, r7, 1
+	JMP OUT
+DEC:
+	SUB r7, r7, 1
+
+OUT:
+	//Store the encoder values and updates the position
+        SBCO r2, CONST_PRUDRAM, r4, 4 //Last Encoder 1
+        SBCO r3, CONST_PRUDRAM, r5, 4 //Last Encoder 2
+        SBCO r7, CONST_PRUDRAM, r6, 4 //Step Position
+
+	//Increment index and move onto the next encoder
+	ADD r0, r0, 4
+	QBNE LOOP3, r0, 48
 
 	JMP LOOP1
 
