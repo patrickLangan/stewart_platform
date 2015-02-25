@@ -55,6 +55,16 @@ ON:
 OFF:
 .endm
 
+.macro WIPERAM
+.mparam offset, reg, length
+	ADD length, length, offset
+	MOV reg, 0
+LOOP1:
+        SBCO reg, CONST_PRUDRAM, offset, 4
+	ADD offset, offset, 4
+	QBNE LOOP1, length, offset
+.endm
+
 .macro WAIT
 .mparam reg, clicks
 	MOV reg, clicks
@@ -162,58 +172,9 @@ START:
 	WRITERAM r0, r1, 1000000
 	WRITERAM r0, r1, 1000000
 	WRITERAM r0, r1, 1000000
-	//Motor Time
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	//Step Position
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	//Last Encoder 1
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	//Last Encoder 2
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
-	WRITERAM r0, r1, 0
+
+	MOV r2, 196
+	WIPERAM r0, r1, r2
 
 LOOP1:
 
@@ -265,14 +226,14 @@ NXTMOT:
 	//This loop goes through six of the rotary encoders and updates their positions as nesecary
 	MOV r0, 0 //Index
 LOOP3:
-	//Loads the previous encoder values and position
+	//Load the previous encoder values and position
 	READRAM ROTARY_ENCODER1, r0, r2, r1
 	READGPIO r1, r3, r2
 	READRAM ROTARY_ENCODER2, r0, r3, r1
 	READGPIO r1, r4, r3
 	READRAM STEP_POSITION, r0, r6, r7
 
-	//Looks for rising or falling edges in each channel.
+	//Look for rising or falling edges in each channel.
 	//Whether to inc or dec depends the value of the other channel.
 	READRAM LAST_ENCODER1, r0, r4, r1
 	QBEQ NXTCHAN, r2, r1
@@ -291,7 +252,7 @@ DEC:
 	SUB r7, r7, 1
 
 OUT:
-	//Store the encoder values and updates the position
+	//Store the encoder values and update the position
         SBCO r2, CONST_PRUDRAM, r4, 4 //Last Encoder 1
         SBCO r3, CONST_PRUDRAM, r5, 4 //Last Encoder 2
         SBCO r7, CONST_PRUDRAM, r6, 4 //Step Position
