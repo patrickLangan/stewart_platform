@@ -43,8 +43,8 @@
 .endm
 
 .macro READGPIO
-.mparam pin, reg, out
-	MOV reg, GPIO0 | GPIO_DATAIN
+.mparam gpio, pin, reg, out
+	MOV reg, gpio | GPIO_DATAIN
         LBBO out, reg, 0, 4
 
 	QBBS ON, out, pin
@@ -226,11 +226,23 @@ NXTMOT:
 	//This loop goes through six of the rotary encoders and updates their positions as nesecary
 	MOV r0, 0 //Index
 LOOP3:
-	//Load the previous encoder values and position
+	//Read the current encoder values.
+	//Channel 2 is split up amongst 3 internal bus's, hence the branching.
 	READRAM ROTARY_ENCODER1, r0, r2, r1
-	READGPIO r1, r3, r2
+	READGPIO GPIO0, r1, r3, r2
 	READRAM ROTARY_ENCODER2, r0, r3, r1
-	READGPIO r1, r4, r3
+	QBGT BUS0, r0, 4
+	QBGT BUS1, r0, 32
+	READGPIO GPIO2, r1, r4, r3
+	JMP DONEGPIO
+BUS1:
+	READGPIO GPIO1, r1, r4, r3
+	JMP DONEGPIO
+BUS0:
+	READGPIO GPIO0, r1, r4, r3
+DONEGPIO:
+
+	//Read the stored encoder position
 	READRAM STEP_POSITION, r0, r6, r7
 
 	//Look for rising or falling edges in each channel.
