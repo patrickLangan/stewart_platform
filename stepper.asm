@@ -173,11 +173,39 @@ START:
 	WRITERAM r0, r1, 1000000
 	WRITERAM r0, r1, 1000000
 
-	MOV r2, 196
+	MOV r2, 96
 	WIPERAM r0, r1, r2
 
-LOOP1:
+	//This loop goes through rotary encoders channel 1, setting the initial values
+	MOV r4, LAST_ENCODER2
+INIT1:
+	SUB r1, r0, 240
+	READRAM r1, 0, r2, r3
+	READGPIO GPIO0, r3, r2, r1
+	WRITERAM r0, r2, r1
+	QBNE INIT1, r0, r4
 
+	//This loop goes through rotary encoders channel 2, setting the initial values
+	MOV r4, LAST_ENCODER2
+	add r4, r4, 48
+INIT2:
+	SUB r1, r0, 240
+	READRAM r1, 0, r2, r3
+	QBGT BUS0i, r0, 4
+	QBGT BUS1i, r0, 32
+	READGPIO GPIO2, r3, r2, r1
+	JMP DONEGPIOi
+BUS1i:
+	READGPIO GPIO1, r3, r2, r1
+	JMP DONEGPIOi
+BUS0i:
+	READGPIO GPIO0, r3, r2, r1
+DONEGPIOi:
+	WRITERAM r0, r2, r1
+	QBNE INIT2, r0, r4
+
+	//MAIN PROGRAM LOOP
+LOOP1:
 	//This loop goes through all 12 motors and steps them asynchronously
 	MOV r0, 0 //Index
 LOOP2:
@@ -223,7 +251,7 @@ NXTMOT:
 	ADD r0, r0, 4
 	QBNE LOOP2, r0, 48
 
-	//This loop goes through six of the rotary encoders and updates their positions as nesecary
+	//This loop goes through rotary encoders and updates their positions as nesecary
 	MOV r0, 0 //Index
 LOOP3:
 	//Read the current encoder values.
