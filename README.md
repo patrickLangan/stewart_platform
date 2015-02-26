@@ -21,6 +21,11 @@ pneumaticTests
 		Data1:	P9_30 (MOSI)
 		Data0:	P9_29 (MISO)
 
+	SPI CS - GPIO0
+		P8_17   gpio0_27        gpio27  0x02c
+		P9_11   gpio0_30        gpio30  0x070
+		P9_13   gpio0_31        gpio31  0x074
+
 	Motor STEP - PRU1
 		P8_45	pru_0
 		P8_46	pru_1
@@ -56,7 +61,7 @@ pneumaticTests
 		P8_9	gpio2_5		gpio69	0x09c
 		P8_37	gpio2_14	gpio78	0x0c0
 
-	Rotary Encoder - GPIO0, GPIO1, and GPIO2
+	Rotary Encoder 1 (channel 1) - GPIO0
 		P9_42   gpio0_7		gpio7   0x164
 		P8_35   gpio0_8		gpio8   0x0d0
 		P8_33   gpio0_9		gpio9   0x0d4
@@ -69,6 +74,8 @@ pneumaticTests
 		P9_41   gpio0_20	gpio20  0x1b4
 		P8_19   gpio0_22	gpio22  0x020
 		P8_13   gpio0_23	gpio23  0x024
+
+	Rotary Encoder 2 (channel 2) - GPIO0, GPIO1, and GPIO2
 		P8_14   gpio0_26	gpio26  0x028
 
 		P9_15   gpio1_16	gpio48  0x040
@@ -83,12 +90,6 @@ pneumaticTests
 		P8_36   gpio2_16	gpio80  0x0c8
 		P8_34   gpio2_17	gpio81  0x0cc
 		P8_30   gpio2_25	gpio89  0x0ec
-
-
-	SPI CS - GPIO0
-		P8_17   gpio0_27        gpio27  0x02c
-		P9_11   gpio0_30        gpio30  0x070
-		P9_13   gpio0_31        gpio31  0x074
 
 
 ##Beaglebone Black setup
