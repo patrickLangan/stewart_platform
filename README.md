@@ -36,6 +36,7 @@ pneumaticTests
 		P8_39	pru_6
 		P8_40	pru_7
 		P8_27	pru_8
+		P8_29	pru_9
 		P8_28	pru_10
 		P8_21	pru_12
 
