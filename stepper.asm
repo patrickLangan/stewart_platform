@@ -109,7 +109,7 @@ START:
 	WRITERAM r0, r1, 0b00000010000000
 	WRITERAM r0, r1, 0b00000100000000
 	WRITERAM r0, r1, 0b00001000000000
-	WRITERAM r0, r1, 0b00100000000000
+	WRITERAM r0, r1, 0b00010000000000
 	WRITERAM r0, r1, 0b01000000000000
 	//Motor DIR
 	WRITERAM r0, r1, 0b0000000000000001
@@ -219,18 +219,20 @@ LOOP2:
 	//Check if the motor needs to be stepped
 	READRAM 0, r0, r1, r2
 	READRAM STEP_POSITION, r0, r1, r3
+	QBBS NEGITIVE, r3, 31
+	JMP POSITIVE
+NEGITIVE:
+	MOV r3, 0
+POSITIVE:
         QBEQ NXTMOT, r2, r3
 
 	//Set the direction of the motor
         QBLT DIRDOWN, r3, r2
         MOV r2, GPIO1 | GPIO_CLEARDATAOUT
-        ADD r3, r3, 1
         JMP DIRUP
 DIRDOWN:
         MOV r2, GPIO1 | GPIO_SETDATAOUT
-        SUB r3, r3, 1
 DIRUP:
-        //SBCO r3, CONST_PRUDRAM, r1, 4 //Step Position
 	READRAM MOTOR_DIR, r0, r3, r1
         SBBO r1, r2, 0, 4
 
@@ -278,18 +280,18 @@ DONEGPIO:
 	READRAM LAST_ENCODER1, r0, r4, r1
 	QBEQ NXTCHAN, r2, r1
 	QBEQ INC, r2, r3
-	SUB r7, r7, 1
+	ADD r7, r7, 1
 	JMP NXTCHAN
 INC:
-	ADD r7, r7, 1
+	SUB r7, r7, 1
 NXTCHAN:
 	READRAM LAST_ENCODER2, r0, r5, r1
 	QBEQ OUT, r3, r1
 	QBEQ DEC, r3, r2
-	ADD r7, r7, 1
+	SUB r7, r7, 1
 	JMP OUT
 DEC:
-	SUB r7, r7, 1
+	ADD r7, r7, 1
 
 OUT:
 	//Store the encoder values and update the position
