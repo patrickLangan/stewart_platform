@@ -120,11 +120,14 @@ void spiInit (char *file, int *fd)
 	ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
 }
 
-int spiRead (int fd, int cs)
+float spiRead (int fd, FILE *cs)
 {
 	uint8_t tx[2] = {1, 1};
 	uint8_t rx[2];
 	struct spi_ioc_transfer tr;
+
+	fprintf (cs, "0");
+	fflush (cs);
 
 	tr.tx_buf = (unsigned long)tx;
 	tr.rx_buf = (unsigned long)rx;
@@ -134,7 +137,10 @@ int spiRead (int fd, int cs)
 
 	ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
 
-	return (rx[0] << 8) | rx[1];
+	fprintf (cs, "1");
+	fflush (cs);
+
+        return (float)((((rx[0] << 8) | rx[1]) >> 1) & 0b0000111111111111) * 0.0120147945;
 }
 
 int main (int argc, char **argv)
@@ -144,7 +150,7 @@ int main (int argc, char **argv)
 	int spiFile1;
 	int spiFile2;
         struct gpioInfo cs[3] = {{27}, {30}, {31}};
-	int lengthSensor[6];
+	float lengthSensor[6];
 
         struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {78}};
 
@@ -175,6 +181,14 @@ int main (int argc, char **argv)
 
         for (i = 0; i < 6; i++)
                 gpioOutputInit (&controlValve[i]);
+
+	while (1) {
+                lengthSensor[0] = spiRead (spiFile1, cs[0].file);
+                lengthSensor[1] = spiRead (spiFile1, cs[1].file);
+                lengthSensor[2] = spiRead (spiFile1, cs[2].file);
+
+                printf ("%f, %f, %f\n", lengthSensor[0], lengthSensor[1], lengthSensor[2]);
+	}
 
 shutdown:
 
