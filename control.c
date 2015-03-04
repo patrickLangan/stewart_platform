@@ -63,21 +63,21 @@ int pruAbscond (void)
 	return 0;
 }
 
-int gpioOutputInit (struct gpioInfo *gpio)
+int gpioOutputInit (struct gpioInfo *gpio, char *value)
 {
         char gpioPath[30];
 
         sprintf (gpioPath, "/sys/class/gpio/gpio%d/value", gpio->pin);
         gpio->file = fopen (gpioPath, "w");
-        fprintf (gpio->file, "0");
+        fprintf (gpio->file, value);
         fflush (gpio->file);
 
         return 0;
 }
 
-int gpioOutputAbscond (struct gpioInfo *gpio)
+int gpioOutputAbscond (struct gpioInfo *gpio, char *value)
 {
-        fprintf (gpio->file, "0");
+        fprintf (gpio->file, value);
         fclose (gpio->file);
         return 0;
 }
@@ -177,10 +177,10 @@ int main (int argc, char **argv)
 	spiInit ("/dev/spidev2.0", &spiFile2);
 
 	for (i = 0; i < 3; i++)
-                gpioOutputInit (&cs[i]);
+                gpioOutputInit (&cs[i], "1");
 
         for (i = 0; i < 6; i++)
-                gpioOutputInit (&controlValve[i]);
+                gpioOutputInit (&controlValve[i], "0");
 
 	while (1) {
                 lengthSensor[0] = spiRead (spiFile1, cs[0].file);
@@ -200,10 +200,10 @@ shutdown:
 	close (spiFile2);
 
         for (i = 0; i < 3; i++)
-                gpioOutputAbscond (&cs[i]);
+                gpioOutputAbscond (&cs[i], "1");
 
         for (i = 0; i < 6; i++)
-                gpioOutputAbscond (&controlValve[i]);
+                gpioOutputAbscond (&controlValve[i], "0");
 
 	return 0;
 }
