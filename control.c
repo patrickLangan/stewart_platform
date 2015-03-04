@@ -19,10 +19,10 @@ static unsigned int *pruDataMem_int;
 
 static jmp_buf buf;
 
-struct vector {
-	float x;
-	float y;
-	float z;
+struct gpioInfo {
+	int pin;
+	int value;
+	FILE *file;
 };
 
 void signalCatcher (int null)
@@ -61,6 +61,41 @@ int pruAbscond (void)
 	}
 
 	return 0;
+}
+
+int gpioOutputInit (struct gpioInfo *gpio)
+{
+        char gpioPath[30];
+
+        sprintf (gpioPath, "/sys/class/gpio/gpio%d/value", gpio->pin);
+        gpio->file = fopen (gpioPath, "w");
+        fprintf (gpio->file, "0");
+        fflush (gpio->file);
+
+        return 0;
+}
+
+int gpioOutputAbscond (struct gpioInfo *gpio)
+{
+        fprintf (gpio->file, "0");
+        fclose (gpio->file);
+        return 0;
+}
+
+int gpioInputInit (struct gpioInfo *gpio)
+{
+        char gpioPath[30];
+
+        sprintf (gpioPath, "/sys/class/gpio/gpio%d/value", gpio->pin);
+        gpio->file = fopen (gpioPath, "r");
+
+        return 0;
+}
+
+int gpioInputAbscond (struct gpioInfo *gpio)
+{
+        fclose (gpio->file);
+        return 0;
 }
 
 int joystickRead (FILE *file)
@@ -108,7 +143,10 @@ int main (int argc, char **argv)
 
 	int spiFile1;
 	int spiFile2;
+        struct gpioInfo cs[3] = {{27}, {30}, {31}};
 	int lengthSensor[6];
+
+        struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {78}};
 
 	int i;
 
@@ -132,6 +170,12 @@ int main (int argc, char **argv)
 	spiInit ("/dev/spidev1.0", &spiFile1);
 	spiInit ("/dev/spidev2.0", &spiFile2);
 
+	for (i = 0; i < 3; i++)
+                gpioOutputInit (&cs[i]);
+
+        for (i = 0; i < 6; i++)
+                gpioOutputInit (&controlValve[i]);
+
 shutdown:
 
 	fclose (joystickFile);
@@ -140,6 +184,12 @@ shutdown:
 
 	close (spiFile1);
 	close (spiFile2);
+
+        for (i = 0; i < 3; i++)
+                gpioOutputAbscond (&cs[i]);
+
+        for (i = 0; i < 6; i++)
+                gpioOutputAbscond (&controlValve[i]);
 
 	return 0;
 }
