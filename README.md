@@ -60,7 +60,7 @@ pneumaticTests
 		P8_8	gpio2_3		gpio67	0x094
 		P8_10	gpio2_4		gpio68	0x098
 		P8_9	gpio2_5		gpio69	0x09c
-		P8_37	gpio2_14	gpio78	0x0c0
+		P9_20	gpio0_12	gpio12	0x178
 
 	Rotary Encoder 1 (channel 1) - GPIO0
 		P9_42   gpio0_7		gpio7   0x164
@@ -68,17 +68,15 @@ pneumaticTests
 		P8_33   gpio0_9		gpio9   0x0d4
 		P8_31   gpio0_10	gpio10  0x0d8
 		P8_32   gpio0_11	gpio11  0x0dc
-		P9_20   gpio0_12	gpio12  0x178
 		P9_19   gpio0_13	gpio13  0x17c
 		P9_26   gpio0_14	gpio14  0x180
 		P9_24   gpio0_15	gpio15  0x184
 		P9_41   gpio0_20	gpio20  0x1b4
 		P8_19   gpio0_22	gpio22  0x020
 		P8_13   gpio0_23	gpio23  0x024
-
-	Rotary Encoder 2 (channel 2) - GPIO0, GPIO1, and GPIO2
 		P8_14   gpio0_26	gpio26  0x028
 
+	Rotary Encoder 2 (channel 2) - GPIO0, GPIO1, and GPIO2
 		P9_15   gpio1_16	gpio48  0x040
 		P9_23   gpio1_17	gpio49  0x044
 		P9_14   gpio1_18	gpio50  0x048
@@ -87,6 +85,7 @@ pneumaticTests
 		P8_26   gpio1_29	gpio61  0x07c
 		P8_20   gpio1_31	gpio63  0x084
 
+		P8_37   gpio2_12	gpio78  0x0c0
 		P8_38   gpio2_15	gpio79  0x0c4
 		P8_36   gpio2_16	gpio80  0x0c8
 		P8_34   gpio2_17	gpio81  0x0cc

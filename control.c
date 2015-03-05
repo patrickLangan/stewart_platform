@@ -152,7 +152,7 @@ int main (int argc, char **argv)
         struct gpioInfo cs[3] = {{27}, {30}, {31}};
 	float lengthSensor[6];
 
-        struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {78}};
+        struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {12}};
 
 	int i;
 
