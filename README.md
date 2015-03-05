@@ -64,9 +64,9 @@ pneumaticTests
 
 	Rotary Encoder 1 (channel 1) - GPIO0
 		P9_42   gpio0_7		gpio7   0x164
-		P8_35   gpio0_8		gpio8   0x0d0
-		P8_33   gpio0_9		gpio9   0x0d4
 		P8_31   gpio0_10	gpio10  0x0d8
+		P8_33   gpio0_9		gpio9   0x0d4
+		P8_35   gpio0_8		gpio8   0x0d0
 		P8_32   gpio0_11	gpio11  0x0dc
 		P9_19   gpio0_13	gpio13  0x17c
 		P9_26   gpio0_14	gpio14  0x180

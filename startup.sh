@@ -57,9 +57,9 @@ enableGpio 12 "out" 0
 
 #Rotary encoder 1
 enableGpio 7  "in"
-enableGpio 8  "in"
-enableGpio 9  "in"
 enableGpio 10 "in"
+enableGpio 9  "in"
+enableGpio 8  "in"
 enableGpio 11 "in"
 enableGpio 13 "in"
 enableGpio 14 "in"
