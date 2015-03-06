@@ -202,10 +202,41 @@ int main (int argc, char **argv)
                 gpioOutputInit (&controlValve[i], "0");
 
 	for (i = 0; i < stepNum; i++) {
-                fread (&setLength, sizeof(double), 1, file);
-                fread (&setForce, sizeof(double), 1, file);
+		//Cylinder 1
+		fread (&setLength, sizeof(double), 1, file);
+		fread (&setForce, sizeof(double), 1, file);
 
-		printf ("%lf, %lf\n", setLength, setForce);
+		pruDataMem_int[0] = abs ((int)setForce);
+		pruDataMem_int[1] = abs ((int)setForce);
+
+		if (setForce > 0)
+                        fprintf (controlValve[0].file, "1");
+                else
+                        fprintf (controlValve[0].file, "0");
+
+		//Cylinder 3
+		fread (&setLength, sizeof(double), 1, file);
+		fread (&setForce, sizeof(double), 1, file);
+
+		pruDataMem_int[4] = abs ((int)setForce);
+		pruDataMem_int[5] = abs ((int)setForce);
+
+		if (setForce > 0)
+                        fprintf (controlValve[2].file, "1");
+                else
+                        fprintf (controlValve[2].file, "0");
+
+		//Cylinder 5
+		fread (&setLength, sizeof(double), 1, file);
+		fread (&setForce, sizeof(double), 1, file);
+
+		pruDataMem_int[8] = abs ((int)setForce);
+		pruDataMem_int[9] = abs ((int)setForce);
+
+		if (setForce > 0)
+                        fprintf (controlValve[4].file, "1");
+                else
+                        fprintf (controlValve[4].file, "0");
         }
 
 
