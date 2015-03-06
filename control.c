@@ -154,12 +154,31 @@ int main (int argc, char **argv)
 
         struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {12}};
 
+        FILE *file;
+        double stepNum;
+        double timeStep = 0.01;
+        double setLength;
+        double setForce;
+
 	int i;
 
 	if (setjmp (buf))
 		goto shutdown;
 
 	signal (SIGINT, signalCatcher);
+
+        if (
+                ((argc < 2) ? fprintf (stderr, "You need to give a file name\n") : 0) ||
+                ((argc > 2) ? fprintf (stderr, "Too many arguments\n") : 0)
+        )
+                return 1;
+
+        if (!(file = fopen (argv[1], "r"))) {
+                fprintf (stderr, "Failed to open file\n");
+                return 1;
+        }
+
+        fread (&stepNum, sizeof(double), 1, file);
 
 	joystickFile = fopen ("/sys/devices/ocp.2/helper.13/AIN1", "r");
 
@@ -182,13 +201,13 @@ int main (int argc, char **argv)
         for (i = 0; i < 6; i++)
                 gpioOutputInit (&controlValve[i], "0");
 
-	while (1) {
-                lengthSensor[0] = spiRead (spiFile1, cs[0].file);
-                lengthSensor[1] = spiRead (spiFile1, cs[1].file);
-                lengthSensor[2] = spiRead (spiFile1, cs[2].file);
+	for (i = 0; i < stepNum; i++) {
+                fread (&setLength, sizeof(double), 1, file);
+                fread (&setForce, sizeof(double), 1, file);
 
-                printf ("%f, %f, %f\n", lengthSensor[0], lengthSensor[1], lengthSensor[2]);
-	}
+		printf ("%lf, %lf\n", setLength, setForce);
+        }
+
 
 shutdown:
 
@@ -204,6 +223,8 @@ shutdown:
 
         for (i = 0; i < 6; i++)
                 gpioOutputAbscond (&controlValve[i], "0");
+
+        fclose (file);
 
 	return 0;
 }
