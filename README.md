@@ -23,7 +23,7 @@ pneumaticTests
 
 	SPI CS - GPIO0
 		P8_17   gpio0_27        gpio27  0x02c
-		P9_11   gpio0_30        gpio30  0x070
+		P8_31   gpio0_10	gpio10  0x0d8
 		P9_13   gpio0_31        gpio31  0x074
 
 	Motor STEP - PRU1
@@ -64,7 +64,7 @@ pneumaticTests
 
 	Rotary Encoder 1 (channel 1) - GPIO0
 		P9_42   gpio0_7		gpio7   0x164
-		P8_31   gpio0_10	gpio10  0x0d8
+		P9_11   gpio0_30        gpio30  0x070
 		P8_33   gpio0_9		gpio9   0x0d4
 		P8_35   gpio0_8		gpio8   0x0d0
 		P8_32   gpio0_11	gpio11  0x0dc

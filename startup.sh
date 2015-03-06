@@ -57,7 +57,7 @@ enableGpio 12 "out" 0
 
 #Rotary encoder 1
 enableGpio 7  "in"
-enableGpio 10 "in"
+enableGpio 30 "in"
 enableGpio 9  "in"
 enableGpio 8  "in"
 enableGpio 11 "in"
@@ -85,7 +85,7 @@ enableGpio 89 "in"
 
 #SPI CS
 enableGpio 27 "out" 0
-enableGpio 30 "out" 0
+enableGpio 10 "out" 0
 enableGpio 31 "out" 0
 
 cat /sys/kernel/debug/gpio

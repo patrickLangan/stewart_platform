@@ -149,7 +149,7 @@ int main (int argc, char **argv)
 
 	int spiFile1;
 	int spiFile2;
-        struct gpioInfo cs[3] = {{27}, {30}, {31}};
+        struct gpioInfo cs[3] = {{27}, {10}, {31}};
 	float lengthSensor[6];
 
         struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {12}};
