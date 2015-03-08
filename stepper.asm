@@ -56,13 +56,12 @@ OFF:
 .endm
 
 .macro WIPERAM
-.mparam offset, reg, length
-	ADD length, length, offset
+.mparam offset, reg, end
 	MOV reg, 0
 LOOP1:
         SBCO reg, CONST_PRUDRAM, offset, 4
 	ADD offset, offset, 4
-	QBNE LOOP1, length, offset
+	QBLT LOOP1, end, offset
 .endm
 
 .macro WAIT
@@ -173,10 +172,11 @@ START:
 	WRITERAM r0, r1, 1000000
 	WRITERAM r0, r1, 1000000
 
-	MOV r2, 96
+	MOV r2, 508
 	WIPERAM r0, r1, r2
 
 	//This loop goes through rotary encoders channel 1, setting the initial values
+	MOV r0, LAST_ENCODER1
 	MOV r4, LAST_ENCODER2
 INIT1:
 	SUB r1, r0, 240
@@ -188,18 +188,15 @@ INIT1:
 	//This loop goes through rotary encoders channel 2, setting the initial values
 	MOV r4, LAST_ENCODER2
 	add r4, r4, 48
+	MOV r5, 488
 INIT2:
 	SUB r1, r0, 240
 	READRAM r1, 0, r2, r3
-	QBGT BUS0i, r0, 4
-	QBGT BUS1i, r0, 32
+	QBGT BUS1i, r0, r5
 	READGPIO GPIO2, r3, r2, r1
 	JMP DONEGPIOi
 BUS1i:
 	READGPIO GPIO1, r3, r2, r1
-	JMP DONEGPIOi
-BUS0i:
-	READGPIO GPIO0, r3, r2, r1
 DONEGPIOi:
 	WRITERAM r0, r2, r1
 	QBNE INIT2, r0, r4
