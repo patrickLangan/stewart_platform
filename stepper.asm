@@ -27,6 +27,7 @@
 #define STEP_POSITION	364
 #define LAST_ENCODER1	412
 #define LAST_ENCODER2	460
+#define CONTROL_DIR	508
 
 .macro WRITERAM
 .mparam addr, reg, value
@@ -172,8 +173,32 @@ START:
 	WRITERAM r0, r1, 1000000
 	WRITERAM r0, r1, 1000000
 
-	MOV r2, 508
+	MOV r2, 532
 	WIPERAM r0, r1, r2
+
+
+/*
+ASDLKF:
+	MOV r1, 0
+LOOPT:
+	QBEQ BUS0c11, r1, 20
+        MOV r2, GPIO2 | GPIO_SETDATAOUT
+	JMP OUTc11
+BUS0c11:
+        MOV r2, GPIO0 | GPIO_SETDATAOUT
+OUTc11:
+        READRAM CONTROL_VALVE, r1, r3, r4
+        SBBO r4, r2, 0, 4
+
+        ADD r1, r1, 4
+
+	WAIT r5, 50000000
+        QBNE LOOPT, r1, 24
+
+	JMP ASDLKF
+*/
+
+
 
 	//This loop goes through rotary encoders channel 1, setting the initial values
 	MOV r0, LAST_ENCODER1
@@ -213,6 +238,7 @@ LOOP2:
 	SUB r3, r3, r2
 	SBCO r3, CONST_PRUDRAM, r1, 4 //Motor Time
 
+/*
 	//Check if the motor needs to be stepped
 	READRAM 0, r0, r1, r2
 	READRAM STEP_POSITION, r0, r1, r3
@@ -221,6 +247,32 @@ LOOP2:
 NEGITIVE:
 	MOV r3, 0
 POSITIVE:
+*/
+
+        READRAM 0, r0, r1, r2
+        READRAM STEP_POSITION, r0, r1, r3
+        QBBC POSPOS, r3, 31
+        MOV r3, 0
+POSPOS:
+	LSR r3, r3, 1
+
+	LSR r8, r0, 3
+	LSL r8, r8, 2
+        READRAM CONTROL_DIR, r8, r4, r5
+        QBBS NEGSETPOS, r2, 31
+        //IF CONTROL VALVE IS DOWN SET GOAL TO 0
+        QBNE POSSETPOS, r5, 0
+        MOV r2, 0
+        JMP POSSETPOS
+NEGSETPOS:
+        //Convert negitive number to positive
+        SUB r2, r2, 1
+        NOT r2, r2
+        //IF CONTROL VALVE IS UP SET GOAL TO 0
+        QBNE POSSETPOS, r5, 1
+        MOV r2, 0
+POSSETPOS:
+
         QBEQ NXTMOT, r2, r3
 
 	//Set the direction of the motor
@@ -295,6 +347,67 @@ OUT:
 	//Increment index and move onto the next encoder
 	ADD r0, r0, 4
 	QBNE LOOP3, r0, 48
+
+        //This loop changes the directions of the control valves if nessecary
+        MOV r0, 0 //Index
+        MOV r1, 0 //Index2
+LOOP4:
+        READRAM STEP_POSITION, r0, r3, r2
+        ADD r0, r0, 4
+
+//*
+        QBBC ASDF, r2, 31
+        SUB r2, r2, 1
+        NOT r2, r2
+ASDF:
+	LSR r2, r2, 1
+//*/
+        QBNE OUT2, r2, 0
+
+        READRAM STEP_POSITION, r0, r3, r2
+
+//*
+        QBBC NOKO, r2, 31
+        SUB r2, r2, 1
+        NOT r2, r2
+NOKO:
+	LSR r2, r2, 1
+//*/
+        QBNE OUT2, r2, 0
+
+        READRAM 0, r0, r3, r2
+        QBEQ OUT2, r2, 0
+        READRAM CONTROL_DIR, r1, r4, r3
+        QBBS NEGATIVE, r2, 31
+        //QBEQ OUT2, r3, 1
+        MOV r5, 1
+        SBCO r5, CONST_PRUDRAM, r4, 4 //Control Dir
+	QBEQ BUS0c1, r1, 20
+        MOV r2, GPIO2 | GPIO_SETDATAOUT
+	JMP OUTc1
+BUS0c1:
+        MOV r2, GPIO0 | GPIO_SETDATAOUT
+OUTc1:
+        READRAM CONTROL_VALVE, r1, r3, r4
+        SBBO r4, r2, 0, 4
+        JMP OUT2
+NEGATIVE:
+        //QBEQ OUT2, r3, 0
+        MOV r5, 0
+        SBCO r5, CONST_PRUDRAM, r4, 4 //Control Dir
+	QBEQ BUS0c2, r1, 20
+        MOV r2, GPIO2 | GPIO_CLEARDATAOUT
+	JMP OUTc2
+BUS0c2:
+        MOV r2, GPIO0 | GPIO_CLEARDATAOUT
+OUTc2:
+        READRAM CONTROL_VALVE, r1, r3, r4
+        SBBO r4, r2, 0, 4
+
+OUT2:
+        ADD r0, r0, 4
+        ADD r1, r1, 4
+        QBNE LOOP4, r0, 48
 
 	JMP LOOP1
 
