@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <linux/spi/spidev.h>
 
-static double P = 40.0;
+static double P = 10.0;
 
 static int spiBits = 8;
 static int spiSpeed = 500000;
@@ -156,8 +156,6 @@ float spiRead (int fd, FILE *cs)
 
 int main (int argc, char **argv)
 {
-	FILE *joystickFile;
-
 	int spiFile1;
 	int spiFile2;
         struct gpioInfo cs[3] = {{27}, {10}, {31}};
@@ -170,12 +168,11 @@ int main (int argc, char **argv)
         double timeStep;
         double loopAddr;
         double setLength;
-        double setForce;
 
 	struct timeval startTime;
 	double time;
 
-	int i;
+	int i, j, k;
 
 	if (setjmp (buf))
 		goto shutdown;
@@ -197,12 +194,16 @@ int main (int argc, char **argv)
         fread (&timeStep, sizeof(double), 1, file);
         fread (&loopAddr, sizeof(double), 1, file);
 
-	joystickFile = fopen ("/sys/devices/ocp.2/helper.13/AIN1", "r");
-
 	pruInit ();
 
 	prussdrv_map_prumem (PRUSS0_PRU1_DATARAM, &pruDataMem);
 	pruDataMem_int = (unsigned int*) pruDataMem;
+
+        for (i = 0; i < 12; i++)
+		pruDataMem_int[i] = 0;
+
+        for (i = 0; i < 6; i++)
+                gpioOutputInit (&controlValve[i], "0");
 
 	if (prussdrv_exec_program (1, "./stepper.bin")) {
 		fprintf (stderr, "prussdrv_exec_program (1, './stepper.bin') failed\n");
@@ -215,25 +216,11 @@ int main (int argc, char **argv)
 	for (i = 0; i < 3; i++)
                 gpioOutputInit (&cs[i], "1");
 
-        for (i = 0; i < 6; i++)
-                gpioOutputInit (&controlValve[i], "0");
 
-        for (i = 0; i < 12; i++)
-		pruDataMem_int[i] = 0;
+	for (i = 0; i < 12; i++)
+		pruDataMem_int[i] = 25;
 
-	pruDataMem_int[6] = 200;
-	pruDataMem_int[7] = 200;
-	pruDataMem_int[2] = 200;
-	pruDataMem_int[3] = 200;
-	pruDataMem_int[10] = 200;
-	pruDataMem_int[11] = 200;
-
-	for (i = 0; i < 3; i++) {
-		fprintf (controlValve[i].file, "1");
-		fflush (controlValve[i].file);
-	}
-
-	for (i = 0; i != 0b111; ) {
+	for (i = 0; i != 0b111111; ) {
                 lengthSensor[0] = spiRead (spiFile1, cs[0].file);
 		if (lengthSensor[0] > 17.25) {
 			pruDataMem_int[6] = 0;
@@ -252,12 +239,34 @@ int main (int argc, char **argv)
 			pruDataMem_int[10] = 0;
 			pruDataMem_int[11] = 0;
 		}
+                lengthSensor[3] = spiRead (spiFile2, cs[0].file);
+		if (lengthSensor[3] > 17.25) {
+			i |= 0b1000;
+			pruDataMem_int[0] = 0;
+			pruDataMem_int[1] = 0;
+		}
+                lengthSensor[4] = spiRead (spiFile2, cs[1].file);
+		if (lengthSensor[4] > 17.25) {
+			i |= 0b10000;
+			pruDataMem_int[4] = 0;
+			pruDataMem_int[5] = 0;
+		}
+                lengthSensor[5] = spiRead (spiFile2, cs[2].file);
+		if (lengthSensor[5] > 17.25) {
+			i |= 0b100000;
+			pruDataMem_int[8] = 0;
+			pruDataMem_int[9] = 0;
+		}
 	}
 
         for (i = 0; i < 12; i++)
 		pruDataMem_int[i] = 0;
 
 	puts ("JUMPPED");
+
+	//goto shutdown;
+
+	sleep (1);
 
 	gettimeofday (&startTime, NULL);
 
@@ -269,62 +278,50 @@ LOOP:
 		//Cylinder 1
 		fread (&setLength, sizeof(double), 1, file);
                 lengthSensor[0] = spiRead (spiFile1, cs[0].file);
-
 		PIDOut = P * (setLength - lengthSensor[0] + 17.0);
-
-		pruDataMem_int[6] = abs ((int)PIDOut);
-		pruDataMem_int[7] = abs ((int)PIDOut);
-
-		printf ("%lf, %lf, %lf, %d, %d, ", setLength, lengthSensor[0], PIDOut, pruDataMem_int[6], pruDataMem_int[7]);
-
-		if (PIDOut > 0)
-                        fprintf (controlValve[0].file, "1");
-                else
-                        fprintf (controlValve[0].file, "0");
-		fflush (controlValve[0].file);
+		pruDataMem_int[6] = (int)PIDOut;
+		pruDataMem_int[7] = (int)PIDOut;
+		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[0], PIDOut, pruDataMem_int[6], pruDataMem_int[7], pruDataMem_int[97], pruDataMem_int[98]);
 
 		//Cylinder 2
 		fread (&setLength, sizeof(double), 1, file);
+                lengthSensor[5] = spiRead (spiFile2, cs[2].file);
+		PIDOut = P * (setLength - lengthSensor[5] + 17.0);
+		pruDataMem_int[8] = (int)PIDOut;
+		pruDataMem_int[9] = (int)PIDOut;
+		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[5], PIDOut, pruDataMem_int[8], pruDataMem_int[9], pruDataMem_int[99], pruDataMem_int[100]);
 
 		//Cylinder 3
 		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[1] = spiRead (spiFile1, cs[1].file);
-
-		PIDOut = P * (setLength - lengthSensor[1] + 17.0);
-
-		pruDataMem_int[2] = abs ((int)PIDOut);
-		pruDataMem_int[3] = abs ((int)PIDOut);
-
-		printf ("%lf, %lf, %lf, %d, %d, ", setLength, lengthSensor[1], PIDOut, pruDataMem_int[2], pruDataMem_int[3]);
-
-		if (PIDOut > 0)
-                        fprintf (controlValve[1].file, "1");
-                else
-                        fprintf (controlValve[1].file, "0");
-		fflush (controlValve[1].file);
+                lengthSensor[2] = spiRead (spiFile1, cs[2].file);
+		PIDOut = P * (setLength - lengthSensor[2] + 17.0);
+		pruDataMem_int[10] = (int)PIDOut;
+		pruDataMem_int[11] = (int)PIDOut;
+		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[2], PIDOut, pruDataMem_int[10], pruDataMem_int[11], pruDataMem_int[101], pruDataMem_int[102]);
 
 		//Cylinder 4
 		fread (&setLength, sizeof(double), 1, file);
+                lengthSensor[4] = spiRead (spiFile2, cs[1].file);
+		PIDOut = P * (setLength - lengthSensor[4] + 17.0);
+		pruDataMem_int[4] = (int)PIDOut;
+		pruDataMem_int[5] = (int)PIDOut;
+		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[4], PIDOut, pruDataMem_int[4], pruDataMem_int[5], pruDataMem_int[95], pruDataMem_int[96]);
 
 		//Cylinder 5
 		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[2] = spiRead (spiFile1, cs[2].file);
-
-		PIDOut = P * (setLength - lengthSensor[2] + 17.0);
-
-		pruDataMem_int[10] = abs ((int)PIDOut);
-		pruDataMem_int[11] = abs ((int)PIDOut);
-
-		printf ("%lf, %lf, %lf, %d, %d, ", setLength, lengthSensor[2], PIDOut, pruDataMem_int[10], pruDataMem_int[11]);
-
-		if (PIDOut > 0)
-                        fprintf (controlValve[2].file, "1");
-                else
-                        fprintf (controlValve[2].file, "0");
-		fflush (controlValve[2].file);
+                lengthSensor[1] = spiRead (spiFile1, cs[1].file);
+		PIDOut = P * (setLength - lengthSensor[1] + 17.0);
+		pruDataMem_int[2] = (int)PIDOut;
+		pruDataMem_int[3] = (int)PIDOut;
+		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[1], PIDOut, pruDataMem_int[2], pruDataMem_int[3], pruDataMem_int[93], pruDataMem_int[94]);
 
 		//Cylinder 6
 		fread (&setLength, sizeof(double), 1, file);
+                lengthSensor[3] = spiRead (spiFile2, cs[0].file);
+		PIDOut = P * (setLength - lengthSensor[3] + 17.0);
+		pruDataMem_int[0] = (int)PIDOut;
+		pruDataMem_int[1] = (int)PIDOut;
+		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[3], PIDOut, pruDataMem_int[0], pruDataMem_int[1], pruDataMem_int[91], pruDataMem_int[92]);
 
 		do {
 			time = gettimefromfunction (startTime);
@@ -332,23 +329,19 @@ LOOP:
 
 		printf ("%lf\n", time);
         }
-	fseek (file, 0, SEEK_SET);
-	for (i = 0; i < loopAddr * 6; i++)
-		fread (&setLength, sizeof(double), 1, file);
+	fseek (file, (((int)loopAddr * 6) + 3) * sizeof(double), SEEK_SET);
 	i = (int)loopAddr;
 	goto LOOP;
 
 shutdown:
 
-	fclose (joystickFile);
-
-        for (i = 0; i < 6; i++)
-                gpioOutputAbscond (&controlValve[i], "0");
-
         for (i = 0; i < 12; i++)
 		pruDataMem_int[i] = 0;
 
 	sleep (5);
+
+        for (i = 0; i < 6; i++)
+                gpioOutputAbscond (&controlValve[i], "0");
 
 	pruAbscond ();
 
