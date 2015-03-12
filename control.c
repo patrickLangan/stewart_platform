@@ -11,10 +11,14 @@
 #include <fcntl.h>
 #include <linux/spi/spidev.h>
 
-static double P = 10.0;
+static float P[6] = {9.28669, 10.0, 9.79841, 9.43085, 8.10016, 8.42789};
 
 static int spiBits = 8;
 static int spiSpeed = 500000;
+
+static float potScale = 0.0120147945;
+
+static int motor[12] = {6, 7, 8, 9, 10, 11, 5, 4, 3, 2, 1, 0};
 
 static void *pruDataMem;
 static unsigned int *pruDataMem_int;
@@ -32,13 +36,13 @@ void signalCatcher (int null)
 	longjmp (buf, 1);
 }
 
-double gettimefromfunction (struct timeval startTime)
+int gettimefromfunction (struct timeval startTime)
 {
 	struct timeval curTime;
 
 	gettimeofday (&curTime, NULL);
 
-	return ((double)(curTime.tv_sec - startTime.tv_sec) * 1e3) + ((double)(curTime.tv_usec - startTime.tv_usec) * 1e-3);
+	return ((curTime.tv_sec - startTime.tv_sec) * 1e6) + curTime.tv_usec - startTime.tv_usec;
 }
 
 int pruInit (void)
@@ -131,14 +135,11 @@ void spiInit (char *file, int *fd)
 	ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
 }
 
-float spiRead (int fd, FILE *cs)
+void spiRead (int fd1, int fd2, FILE *cs, float *out)
 {
 	uint8_t tx[2] = {1, 1};
 	uint8_t rx[2];
 	struct spi_ioc_transfer tr;
-
-	fprintf (cs, "0");
-	fflush (cs);
 
 	tr.tx_buf = (unsigned long)tx;
 	tr.rx_buf = (unsigned long)rx;
@@ -146,12 +147,17 @@ float spiRead (int fd, FILE *cs)
 	tr.speed_hz = spiSpeed;
 	tr.bits_per_word = spiBits;
 
-	ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
+	fprintf (cs, "0");
+	fflush (cs);
+
+	ioctl (fd1, SPI_IOC_MESSAGE (1), &tr);
+        out[0] = (float)((((rx[0] << 8) | rx[1]) >> 1) & 0b0000111111111111) * potScale;
+
+	ioctl (fd2, SPI_IOC_MESSAGE (1), &tr);
+        out[1] = (float)((((rx[0] << 8) | rx[1]) >> 1) & 0b0000111111111111) * potScale;
 
 	fprintf (cs, "1");
 	fflush (cs);
-
-        return (float)((((rx[0] << 8) | rx[1]) >> 1) & 0b0000111111111111) * 0.0120147945;
 }
 
 int main (int argc, char **argv)
@@ -159,20 +165,21 @@ int main (int argc, char **argv)
 	int spiFile1;
 	int spiFile2;
         struct gpioInfo cs[3] = {{27}, {10}, {31}};
-	double lengthSensor[6];
 
         struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {12}};
 
         FILE *file;
-        double stepNum;
-        double timeStep;
-        double loopAddr;
-        double setLength;
+	float fBuffer;
+	int stepNum;
+	int timeStep;
+	int loopAddr;
+	float setLength[6] = {0, 0, 0, 0, 0, 0};
 
 	struct timeval startTime;
-	double time;
+	int time;
+	int progTime;
 
-	int i, j, k;
+	int i, j, k, l;
 
 	if (setjmp (buf))
 		goto shutdown;
@@ -190,9 +197,12 @@ int main (int argc, char **argv)
                 return 1;
         }
 
-        fread (&stepNum, sizeof(double), 1, file);
-        fread (&timeStep, sizeof(double), 1, file);
-        fread (&loopAddr, sizeof(double), 1, file);
+        fread (&fBuffer, sizeof(float), 1, file);
+	stepNum = (int)fBuffer;
+        fread (&fBuffer, sizeof(float), 1, file);
+	timeStep = (int)fBuffer * 1000;
+        fread (&fBuffer, sizeof(float), 1, file);
+	loopAddr = (int)fBuffer;
 
 	pruInit ();
 
@@ -216,46 +226,26 @@ int main (int argc, char **argv)
 	for (i = 0; i < 3; i++)
                 gpioOutputInit (&cs[i], "1");
 
-
 	for (i = 0; i < 12; i++)
 		pruDataMem_int[i] = 25;
 
 	for (i = 0; i != 0b111111; ) {
-                lengthSensor[0] = spiRead (spiFile1, cs[0].file);
-		if (lengthSensor[0] > 17.25) {
-			pruDataMem_int[6] = 0;
-			pruDataMem_int[7] = 0;
-			i |= 0b1;
-		}
-                lengthSensor[1] = spiRead (spiFile1, cs[1].file);
-		if (lengthSensor[1] > 17.25) {
-			pruDataMem_int[2] = 0;
-			pruDataMem_int[3] = 0;
-			i |= 0b10;
-		}
-                lengthSensor[2] = spiRead (spiFile1, cs[2].file);
-		if (lengthSensor[2] > 17.25) {
-			i |= 0b100;
-			pruDataMem_int[10] = 0;
-			pruDataMem_int[11] = 0;
-		}
-                lengthSensor[3] = spiRead (spiFile2, cs[0].file);
-		if (lengthSensor[3] > 17.25) {
-			i |= 0b1000;
-			pruDataMem_int[0] = 0;
-			pruDataMem_int[1] = 0;
-		}
-                lengthSensor[4] = spiRead (spiFile2, cs[1].file);
-		if (lengthSensor[4] > 17.25) {
-			i |= 0b10000;
-			pruDataMem_int[4] = 0;
-			pruDataMem_int[5] = 0;
-		}
-                lengthSensor[5] = spiRead (spiFile2, cs[2].file);
-		if (lengthSensor[5] > 17.25) {
-			i |= 0b100000;
-			pruDataMem_int[8] = 0;
-			pruDataMem_int[9] = 0;
+		for (j = 0, k = 0, l = 0; j < 3; j += 1, k += 2, l += 4) {
+			float lengthSensor[2];
+
+			spiRead (spiFile1, spiFile2, cs[j].file, lengthSensor);
+
+			if (lengthSensor[0] > 18) {
+				pruDataMem_int[motor[l]] = 0;
+				pruDataMem_int[motor[l + 1]] = 0;
+				i |= 1 << k;
+			}
+
+			if (lengthSensor[1] > 18) {
+				pruDataMem_int[motor[l + 2]] = 0;
+				pruDataMem_int[motor[l + 3]] = 0;
+				i |= 1 << (k + 1);
+			}
 		}
 	}
 
@@ -266,71 +256,46 @@ int main (int argc, char **argv)
 
 	//goto shutdown;
 
-	sleep (1);
-
 	gettimeofday (&startTime, NULL);
-
+	progTime = 0;
 	i = 0;
 LOOP:
-	for (; i <= stepNum; i++) {
-		double PIDOut;
+	for (; i <= stepNum; ) {
+		struct timeval curTime;
 
-		//Cylinder 1
-		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[0] = spiRead (spiFile1, cs[0].file);
-		PIDOut = P * (setLength - lengthSensor[0] + 17.0);
-		pruDataMem_int[6] = (int)PIDOut;
-		pruDataMem_int[7] = (int)PIDOut;
-		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[0], PIDOut, pruDataMem_int[6], pruDataMem_int[7], pruDataMem_int[97], pruDataMem_int[98]);
+		gettimeofday (&curTime, NULL);
+		time = ((curTime.tv_sec - startTime.tv_sec) * 1000000) + curTime.tv_usec - startTime.tv_usec;
+		if (time > progTime) {
+			for (j = 0; j < 6; j++)
+				fread (&setLength[j], sizeof(float), 1, file);
+			progTime += timeStep;
+			i++;
+		}
 
-		//Cylinder 2
-		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[5] = spiRead (spiFile2, cs[2].file);
-		PIDOut = P * (setLength - lengthSensor[5] + 17.0);
-		pruDataMem_int[8] = (int)PIDOut;
-		pruDataMem_int[9] = (int)PIDOut;
-		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[5], PIDOut, pruDataMem_int[8], pruDataMem_int[9], pruDataMem_int[99], pruDataMem_int[100]);
+		for (j = 0, k = 0, l = 0; j < 3; j += 1, k += 2, l += 4) {
+			float lengthSensor[2];
+			int PIDOut;
 
-		//Cylinder 3
-		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[2] = spiRead (spiFile1, cs[2].file);
-		PIDOut = P * (setLength - lengthSensor[2] + 17.0);
-		pruDataMem_int[10] = (int)PIDOut;
-		pruDataMem_int[11] = (int)PIDOut;
-		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[2], PIDOut, pruDataMem_int[10], pruDataMem_int[11], pruDataMem_int[101], pruDataMem_int[102]);
+			spiRead (spiFile1, spiFile2, cs[j].file, lengthSensor);
 
-		//Cylinder 4
-		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[4] = spiRead (spiFile2, cs[1].file);
-		PIDOut = P * (setLength - lengthSensor[4] + 17.0);
-		pruDataMem_int[4] = (int)PIDOut;
-		pruDataMem_int[5] = (int)PIDOut;
-		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[4], PIDOut, pruDataMem_int[4], pruDataMem_int[5], pruDataMem_int[95], pruDataMem_int[96]);
+			PIDOut = (int)(P[k] * (setLength[k] - lengthSensor[0] + 17.0));
+			pruDataMem_int[motor[l]] = PIDOut;
+			pruDataMem_int[motor[l + 1]] = PIDOut;
 
-		//Cylinder 5
-		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[1] = spiRead (spiFile1, cs[1].file);
-		PIDOut = P * (setLength - lengthSensor[1] + 17.0);
-		pruDataMem_int[2] = (int)PIDOut;
-		pruDataMem_int[3] = (int)PIDOut;
-		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[1], PIDOut, pruDataMem_int[2], pruDataMem_int[3], pruDataMem_int[93], pruDataMem_int[94]);
+			PIDOut = (int)(P[k + 1] * (setLength[k + 1] - lengthSensor[1] + 17.0));
+			pruDataMem_int[motor[l + 2]] = PIDOut;
+			pruDataMem_int[motor[l + 3]] = PIDOut;
 
-		//Cylinder 6
-		fread (&setLength, sizeof(double), 1, file);
-                lengthSensor[3] = spiRead (spiFile2, cs[0].file);
-		PIDOut = P * (setLength - lengthSensor[3] + 17.0);
-		pruDataMem_int[0] = (int)PIDOut;
-		pruDataMem_int[1] = (int)PIDOut;
-		printf ("%lf, %lf, %lf, %d, %d, %d, %d, ", setLength, lengthSensor[3], PIDOut, pruDataMem_int[0], pruDataMem_int[1], pruDataMem_int[91], pruDataMem_int[92]);
-
-		do {
-			time = gettimefromfunction (startTime);
-		} while (time < i * timeStep);
-
-		printf ("%lf\n", time);
+			printf ("%f, %f, ", setLength[k], setLength[k + 1]);
+		}
+		puts ("");
         }
-	fseek (file, (((int)loopAddr * 6) + 3) * sizeof(double), SEEK_SET);
-	i = (int)loopAddr;
+
+	fseek (file, ((loopAddr * 6) + 3) * sizeof(float), SEEK_SET);
+	gettimeofday (&startTime, NULL);
+	progTime = 0;
+	i = loopAddr;
+
 	goto LOOP;
 
 shutdown:
