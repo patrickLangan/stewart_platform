@@ -34,7 +34,7 @@ cat /sys/devices/bone_capemgr.*/slots
 sleep 1
 
 #Motor DIR
-enableGpio 32 "out" 0
+enableGpio 63 "out" 0
 enableGpio 33 "out" 0
 enableGpio 34 "out" 0
 enableGpio 35 "out" 0
@@ -76,7 +76,7 @@ enableGpio 50 "in"
 enableGpio 51 "in"
 enableGpio 60 "in"
 enableGpio 61 "in"
-enableGpio 63 "in"
+enableGpio 32 "in"
 enableGpio 78 "in"
 enableGpio 79 "in"
 enableGpio 80 "in"
@@ -87,6 +87,4 @@ enableGpio 89 "in"
 enableGpio 27 "out" 0
 enableGpio 10 "out" 0
 enableGpio 31 "out" 0
-
-cat /sys/kernel/debug/gpio
 
