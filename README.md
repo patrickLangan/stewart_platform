@@ -3,7 +3,7 @@ pneumaticTests
 
 ##TODO
 - Fix motor timming
-- Improve startup method
+- Cli interface
 - Average encoder readings
 
 
@@ -38,7 +38,7 @@ pneumaticTests
 		P8_21	pru_12
 
 	Motor DIR - GPIO1
-		P8_25   gpio1_0 	gpio32  0x000
+		P8_20   gpio1_31	gpio63  0x084
 		P8_24   gpio1_1 	gpio33  0x004
 		P8_5    gpio1_2 	gpio34  0x008
 		P8_6    gpio1_3 	gpio35  0x00c
@@ -73,16 +73,16 @@ pneumaticTests
 		P8_13   gpio0_23	gpio23  0x024
 		P8_14   gpio0_26	gpio26  0x028
 
-	Rotary Encoder 2 (channel 2) - GPIO0, GPIO1, and GPIO2
+	Rotary Encoder 2 (channel 2) - GPIO1 and GPIO2
 		P9_15   gpio1_16	gpio48  0x040
 		P9_23   gpio1_17	gpio49  0x044
 		P9_14   gpio1_18	gpio50  0x048
 		P9_16   gpio1_19	gpio51  0x04c
 		P9_12   gpio1_28	gpio60  0x078
 		P8_26   gpio1_29	gpio61  0x07c
-		P8_20   gpio1_31	gpio63  0x084
+		P8_25   gpio1_0 	gpio32  0x000
 
-		P8_37   gpio2_12	gpio78  0x0c0
+		P8_37   gpio2_14	gpio78  0x0c0
 		P8_38   gpio2_15	gpio79  0x0c4
 		P8_36   gpio2_16	gpio80  0x0c8
 		P8_34   gpio2_17	gpio81  0x0cc
