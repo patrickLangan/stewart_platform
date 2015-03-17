@@ -1,4 +1,4 @@
-pneumaticTests
+Stewart Platform
 ==============
 
 ##TODO
@@ -46,7 +46,7 @@ pneumaticTests
 		P8_22   gpio1_5 	gpio37  0x014
 		P8_3    gpio1_6 	gpio38  0x018
 		P8_4    gpio1_7 	gpio39  0x01c
-		P8_12   gpio1_12	gpio44  0x030
+		P9_15   gpio1_16	gpio48  0x040
 		P8_11   gpio1_13	gpio45  0x034
 		P8_16   gpio1_14	gpio46  0x038
 		P8_15   gpio1_15	gpio47  0x03c
@@ -74,7 +74,7 @@ pneumaticTests
 		P8_14   gpio0_26	gpio26  0x028
 
 	Rotary Encoder 2 (channel 2) - GPIO1 and GPIO2
-		P9_15   gpio1_16	gpio48  0x040
+		P8_12   gpio1_12	gpio44  0x030
 		P9_23   gpio1_17	gpio49  0x044
 		P9_14   gpio1_18	gpio50  0x048
 		P9_16   gpio1_19	gpio51  0x04c
@@ -126,7 +126,7 @@ Disabling i2c2 frees up pins P9.19-20.  To do so:
 instructions from http://www.embedded-things.com/bbb/enable-canbus-on-the-beaglebone-black/
 
 ###Setting up and running the control program
-- git clone https://github.com/patrickLangan/pneumaticTests.git
+- git clone https://github.com/patrickLangan/stewartPlatform.git
 - Run all the make files
 - ./startup.sh
 - ./control

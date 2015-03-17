@@ -17,6 +17,8 @@
 #define FUNCTION_TIME	280
 #define LOOP_TIME	606
 
+#define ENC_AVERAGE	6
+
 #define MOTOR_STEP	52
 #define MOTOR_DIR	100
 #define CONTROL_VALVE	148
@@ -28,6 +30,8 @@
 #define LAST_ENCODER1	412
 #define LAST_ENCODER2	460
 #define CONTROL_DIR	508
+#define ENC_BUF1	532
+#define ENC_BUF2	580
 
 .macro WRITERAM
 .mparam addr, reg, value
@@ -121,7 +125,7 @@ START:
 	WRITERAM r0, r1, 1 << 5
 	WRITERAM r0, r1, 1 << 6
 	WRITERAM r0, r1, 1 << 7
-	WRITERAM r0, r1, 1 << 12
+	WRITERAM r0, r1, 1 << 16
 	WRITERAM r0, r1, 1 << 13
 	WRITERAM r0, r1, 1 << 14
 	WRITERAM r0, r1, 1 << 15
@@ -146,7 +150,7 @@ START:
 	WRITERAM r0, r1, 23
 	WRITERAM r0, r1, 26
 	//Rotary Encoder 2
-        WRITERAM r0, r1, 16
+        WRITERAM r0, r1, 12
         WRITERAM r0, r1, 17
         WRITERAM r0, r1, 18
         WRITERAM r0, r1, 19
@@ -173,8 +177,9 @@ START:
 	WRITERAM r0, r1, 500000
 	WRITERAM r0, r1, 500000
 	WRITERAM r0, r1, 500000
+	WRITERAM r0, r1, 500000
 
-	MOV r2, 532
+	MOV r2, 628
 	WIPERAM r0, r1, r2
 
 
@@ -206,7 +211,10 @@ DONEGPIOi:
 
 
 	//MAIN PROGRAM LOOP
+	MOV r9, 0 //Encoder averaging loop count
 LOOP1:
+	ADD r9, r9, 1
+
 	//This loop goes through all 12 motors and steps them asynchronously
 	MOV r0, 0 //Index
 LOOP2:
@@ -292,6 +300,24 @@ BUS1:
 	READGPIO GPIO1, r1, r4, r3
 DONEGPIO:
 
+	//Add to encoder averaging buffers
+	READRAM ENC_BUF1, r0, r4, r5
+	ADD r2, r2, r5
+        SBCO r2, CONST_PRUDRAM, r4, 4 //Encoder buffer 1
+	READRAM ENC_BUF2, r0, r5, r6
+	ADD r3, r3, r6
+        SBCO r3, CONST_PRUDRAM, r5, 4 //Encoder buffer 2
+
+	//Only update the step position after averaging the encoder readings
+	QBNE SKIP, r9, ENC_AVERAGE
+	MOV r6, 0
+        SBCO r6, CONST_PRUDRAM, r4, 4 //Encoder buffer 1
+        SBCO r6, CONST_PRUDRAM, r5, 4 //Encoder buffer 2
+
+	//Average encoder readings
+	LSR r2, r2, 2
+	LSR r3, r3, 2
+
 	//Read the stored encoder position
 	READRAM STEP_POSITION, r0, r6, r7
 
@@ -319,9 +345,14 @@ OUT:
         SBCO r3, CONST_PRUDRAM, r5, 4 //Last Encoder 2
         SBCO r7, CONST_PRUDRAM, r6, 4 //Step Position
 
+SKIP:
 	//Increment index and move onto the next encoder
 	ADD r0, r0, 4
 	QBNE LOOP3, r0, 48
+
+	//Only test control valves after averaging the encoder readings
+	QBNE LOOP1, r9, ENC_AVERAGE
+	MOV r9, 0
 
 
         //This loop changes the directions of the control valves if nessecary
@@ -387,4 +418,3 @@ NOSWITCH:
 	JMP LOOP1
 
 HALT
-
