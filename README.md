@@ -33,18 +33,15 @@ Disabling i2c2 frees up pins P9.19-20.  To do so:
 
 instructions from http://www.embedded-things.com/bbb/enable-canbus-on-the-beaglebone-black/
 
-###Set up before running the control program
+###Initial set up of the control program
 - git clone https://github.com/patrickLangan/stewartPlatform.git
-- cd stewartPlatform/gpio-enable
+- cd stewartPlatform
 - make
-- cd ../spi
-- make
-- cd ../stepper-pru
-- make
-- cd ..
-- make
-- ./startup.sh
 
+###Updating the control program
+- cd stewartPlatform
+- git pull https://github.com/patrickLangan/stewartPlatform.git
+- make
 
 ##Wiring
 	spi-0
