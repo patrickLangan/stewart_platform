@@ -42,7 +42,7 @@ enableGpio 36 "out" 0
 enableGpio 37 "out" 0
 enableGpio 38 "out" 0
 enableGpio 39 "out" 0
-enableGpio 44 "out" 0
+enableGpio 48 "out" 0
 enableGpio 45 "out" 0
 enableGpio 46 "out" 0
 enableGpio 47 "out" 0
@@ -70,7 +70,7 @@ enableGpio 23 "in"
 enableGpio 26 "in"
 
 #Rotary encoder 2
-enableGpio 48 "in"
+enableGpio 44 "in"
 enableGpio 49 "in"
 enableGpio 50 "in"
 enableGpio 51 "in"
