@@ -1,11 +1,49 @@
 Stewart Platform
 ==============
 
-##TODO
-- Fix motor timming
-- Negitive motor positions
-- Cli interface
-- Add wiring diagram
+##Beaglebone Black setup
+###SD card installation
+- SD images are here: http://beagleboard.org/latest-images
+- Installation instructions are here (Update board with latest software): http://beagleboard.org/getting-started
+
+###Disabling eMMC and HDMI
+Disabling eMMC (the 4gb onboard memory) frees up pins P8.20-25 and 3-6, disabling HDMI frees up pins P8.27-46.  To do so:
+- mount /dev/mmcblk0p1 /mnt
+- vim /mnt/uEnv.txt
+- Add the following to uEnv.txt:
+```
+cape_disable=capemgr.disable_partno=BB-BONELT-HDMI,BB-BONELT-HDMIN,BB-BONE-EMMC-2G,BB-I2C1,BB-I2C1A1
+mmcreset=mmc dev 1; mmc rstn 1; gpio set 52
+uenvcmd=run mmcreset;
+```
+- umount /mnt
+- poweroff
+
+###Disabling i2c2
+Disabling i2c2 frees up pins P9.19-20.  To do so:
+- git clone https://github.com/derekmolloy/boneDeviceTree.git
+- cd boneDeviceTree/DTSource3.8.13/
+- vim am335x-bone-common.dtsi
+- Uncomment line 404: pinctrl-0 = <&i2c2_pins>;
+- dtc -O dtb -o am335x-boneblack.dtb -b 0 -@ am335x-boneblack.dts
+- find / -name am335x-boneblack.dtb (find the the directory, probably /boot/uboot/dtbs/)
+- sudo mv /directory/from/previous/command/am335x-boneblack.dtb /directory/from/previous/command/am335x-boneblack.orig.dtb
+- sudo mv am335x-boneblack.dtb /directory/from/previous/command/
+- sudo poweroff
+
+instructions from http://www.embedded-things.com/bbb/enable-canbus-on-the-beaglebone-black/
+
+###Set up before running the control program
+- git clone https://github.com/patrickLangan/stewartPlatform.git
+- cd stewartPlatform/gpio-enable
+- make
+- cd ../spi
+- make
+- cd ../stepper-pru
+- make
+- cd ..
+- make
+- ./startup.sh
 
 
 ##Wiring
@@ -90,47 +128,9 @@ Stewart Platform
 		P8_30   gpio2_25	gpio89  0x0ec
 
 
-##Beaglebone Black setup
-###SD card installation
-- SD images are here: http://beagleboard.org/latest-images
-- Installation instructions are here (Update board with latest software): http://beagleboard.org/getting-started
-
-###Disabling eMMC and HDMI
-Disabling eMMC (the 4gb onboard memory) frees up pins P8.20-25 and 3-6, disabling HDMI frees up pins P8.27-46.  To do so:
-- mount /dev/mmcblk0p1 /mnt
-- vim /mnt/uEnv.txt
-- Add the following to uEnv.txt:
-```
-cape_disable=capemgr.disable_partno=BB-BONELT-HDMI,BB-BONELT-HDMIN,BB-BONE-EMMC-2G,BB-I2C1,BB-I2C1A1
-mmcreset=mmc dev 1; mmc rstn 1; gpio set 52
-uenvcmd=run mmcreset;
-```
-- umount /mnt
-- poweroff
-
-###Disabling i2c2
-Disabling i2c2 frees up pins P9.19-20.  To do so:
-- git clone https://github.com/derekmolloy/boneDeviceTree.git
-- cd boneDeviceTree/DTSource3.8.13/
-- vim am335x-bone-common.dtsi
-- Uncomment line 404: pinctrl-0 = <&i2c2_pins>;
-- dtc -O dtb -o am335x-boneblack.dtb -b 0 -@ am335x-boneblack.dts
-- find / -name am335x-boneblack.dtb (find the the directory, probably /boot/uboot/dtbs/)
-- sudo mv /directory/from/previous/command/am335x-boneblack.dtb /directory/from/previous/command/am335x-boneblack.orig.dtb
-- sudo mv am335x-boneblack.dtb /directory/from/previous/command/
-- sudo poweroff
-
-instructions from http://www.embedded-things.com/bbb/enable-canbus-on-the-beaglebone-black/
-
-###Set up before running the control program
-- git clone https://github.com/patrickLangan/stewartPlatform.git
-- cd stewartPlatform/gpio-enable
-- make
-- cd ../spi
-- make
-- cd ../stepper-pru
-- make
-- cd ..
-- make
-- ./startup.sh
+##TODO
+- Fix motor timing
+- Negitive motor positions
+- Cli interface
+- Add wiring diagram
 
