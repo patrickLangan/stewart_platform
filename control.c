@@ -11,7 +11,9 @@
 #include <fcntl.h>
 #include <linux/spi/spidev.h>
 
-static float P[6] = {9.28669, 10.0, 9.79841, 9.43085, 8.10016, 8.42789};
+#include <math.h>
+
+static float P[6] = {10, 10, 10, 10, 10, 10};
 
 static int spiBits = 8;
 static int spiSpeed = 500000;
@@ -177,7 +179,11 @@ int main (int argc, char **argv)
 
 	struct timeval startTime;
 	int time;
+	int lastTime;
 	int progTime;
+
+	float error[6] = {0};
+	float lastError[6];
 
 	int i, j, k, l;
 
@@ -227,7 +233,7 @@ int main (int argc, char **argv)
                 gpioOutputInit (&cs[i], "1");
 
 	for (i = 0; i < 12; i++)
-		pruDataMem_int[i] = 25;
+		pruDataMem_int[i] = 15;
 
 	for (i = 0; i != 0b111111; ) {
 		for (j = 0, k = 0, l = 0; j < 3; j += 1, k += 2, l += 4) {
@@ -236,12 +242,16 @@ int main (int argc, char **argv)
 			spiRead (spiFile1, spiFile2, cs[j].file, lengthSensor);
 
 			if (lengthSensor[0] > 18) {
+				if (lengthSensor[0] > 45)
+					goto shutdown;
 				pruDataMem_int[motor[l]] = 0;
 				pruDataMem_int[motor[l + 1]] = 0;
 				i |= 1 << k;
 			}
 
 			if (lengthSensor[1] > 18) {
+				if (lengthSensor[1] > 45)
+					goto shutdown;
 				pruDataMem_int[motor[l + 2]] = 0;
 				pruDataMem_int[motor[l + 3]] = 0;
 				i |= 1 << (k + 1);
@@ -254,8 +264,6 @@ int main (int argc, char **argv)
 
 	puts ("JUMPPED");
 
-	//goto shutdown;
-
 	gettimeofday (&startTime, NULL);
 	progTime = 0;
 	i = 0;
@@ -263,11 +271,17 @@ LOOP:
 	for (; i <= stepNum; ) {
 		struct timeval curTime;
 
+		lastTime = time;
 		gettimeofday (&curTime, NULL);
 		time = ((curTime.tv_sec - startTime.tv_sec) * 1000000) + curTime.tv_usec - startTime.tv_usec;
 		if (time > progTime) {
-			for (j = 0; j < 6; j++)
+			for (j = 0; j < 6; j++) {
 				fread (&setLength[j], sizeof(float), 1, file);
+				if (fabs (setLength[j]) > 28.0) {
+					fprintf (stderr, "Set length is %f, past the 28 inch limit\n", setLength[j]);
+					goto shutdown;
+				}
+			}
 			progTime += timeStep;
 			i++;
 		}
@@ -277,18 +291,33 @@ LOOP:
 			int PIDOut;
 
 			spiRead (spiFile1, spiFile2, cs[j].file, lengthSensor);
+			if (lengthSensor[0] > 45.0) {
+				fprintf (stderr, "Length sensor is %f, past the 28 inch limit\n", lengthSensor[0]);
+				goto shutdown;
+			}
+			if (lengthSensor[1] > 45.0) {
+				fprintf (stderr, "Length sensor is %f, past the 28 inch limit\n", lengthSensor[1]);
+				goto shutdown;
+			}
 
 			PIDOut = (int)(P[k] * (setLength[k] - lengthSensor[0] + 17.0));
+			if (abs (PIDOut) > 400) {
+				fprintf (stderr, "PID out is %d, past the 400 tick limit\n", PIDOut);
+				goto shutdown;
+			}
+
 			pruDataMem_int[motor[l]] = PIDOut;
 			pruDataMem_int[motor[l + 1]] = PIDOut;
 
 			PIDOut = (int)(P[k + 1] * (setLength[k + 1] - lengthSensor[1] + 17.0));
+			if (abs (PIDOut) > 400) {
+				fprintf (stderr, "PID out is %d, past the 400 tick limit\n", PIDOut);
+				goto shutdown;
+			}
+
 			pruDataMem_int[motor[l + 2]] = PIDOut;
 			pruDataMem_int[motor[l + 3]] = PIDOut;
-
-			printf ("%f, %f, ", setLength[k], setLength[k + 1]);
 		}
-		puts ("");
         }
 
 	fseek (file, ((loopAddr * 6) + 3) * sizeof(float), SEEK_SET);
