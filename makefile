@@ -34,12 +34,32 @@ define gpio-enable
 	cp gpio-enable/gpio-enable-00A0.dtbo /lib/firmware
 endef
 
+#Script for loosening the stepper motors/setting the directional control valves
+define loosen
+	gcc -c loosen/loosen.c -o loosen/loosen.o
+	gcc loosen/loosen.o -L/user/lib -lm -lprussdrv -lpthread -o loosen/loosen
+	pasm -b loosen/stepper.asm | grep Error
+	rm loosen/loosen.o
+endef
+
+#Script for tightening the stepper motors
+define tighten
+	gcc -c tighten/tighten.c -o tighten/tighten.o
+	gcc tighten/tighten.o -L/user/lib -lm -lprussdrv -lpthread -o tighten/tighten
+	pasm -b tighten/stepper.asm | grep Error
+	rm tighten/tighten.o
+endef
+
+.PHONY: all control stepper dts stepper-pru spi gpio-enable loosen tighten
+
 all:
 	$(control)
 	$(stepper)
 	$(stepper-pru)
 	$(spi)
 	$(gpio-enable)
+	$(loosen)
+	$(tighten)
 
 control: control.c
 	$(control)
@@ -60,4 +80,10 @@ spi: spi/SPI0-00A0.dts spi/SPI1-00A0.dts
 
 gpio-enable: gpio-enable/gpio-enable-00A0.dts
 	$(gpio-enable)
+
+loosen: loosen/loosen.c loosen/stepper.asm
+	$(loosen)
+
+tighten: tighten/tighten.c tighten/stepper.asm
+	$(tighten)
 
