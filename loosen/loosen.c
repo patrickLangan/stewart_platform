@@ -99,7 +99,7 @@ int main (int argc, char **argv)
 	pruDataMem_int = (unsigned int*) pruDataMem;
 
 	for (i = 0; i < 6; i++)
-                gpioOutputInit (&controlValve[i], argv[3]);
+                gpioOutputInit (&controlValve[i], 0);
 
 	for (i = 0; i < 12; i++)
 		pruDataMem_int[i] = 0;
@@ -109,17 +109,24 @@ int main (int argc, char **argv)
 		return 1;
 	}
 
-	for (i = 0; i < 12; i++)
-		pruDataMem_int[i] = -atoi (argv[1]);
+	if (atoi (argv[3]) == 0)
+		for (i = 0; i < 12; i++)
+			pruDataMem_int[i] = -atoi (argv[1]);
+	else
+		for (i = 0; i < 12; i++)
+			pruDataMem_int[i] = atoi (argv[1]);
 
 	while (puts (""))
 		for (i = 0; i < 12; i++)
 			printf ("%d, ", pruDataMem_int[91 + i]);
 
 shutdown:
-
-	for (i = 0; i < 12; i++)
-		pruDataMem_int[i] = -atoi (argv[2]);
+	if (atoi (argv[3]) == 0)
+		for (i = 0; i < 12; i++)
+			pruDataMem_int[i] = -atoi (argv[2]);
+	else
+		for (i = 0; i < 12; i++)
+			pruDataMem_int[i] = atoi (argv[2]);
 
 	for (i = 0; i < 12; puts ("")) {
 		if ((abs (pruDataMem_int[91 + i]) >> 1) == atoi (argv[2]))
@@ -129,7 +136,7 @@ shutdown:
 	}
 
 	for (i = 0; i < 6; i++)
-                gpioOutputAbscond (&controlValve[i], argv[3]);
+                gpioOutputAbscond (&controlValve[i], 0);
 
 	pruAbscond ();
 
