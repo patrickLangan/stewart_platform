@@ -13,7 +13,16 @@
 
 #include <math.h>
 
-static float P[6] = {10, 10, 10, 10, 10, 10};
+#define TOP_UP 1.0
+#define TOP_DOWN 1.0
+#define BOTTOM_UP 1.0
+#define BOTTOM_DOWN 0.5
+
+static float P[6] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+static float PScale = 10.0;
+
+static float D[6] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+static float DScale = 1.0e6;
 
 static int spiBits = 8;
 static int spiSpeed = 500000;
@@ -167,7 +176,6 @@ int main (int argc, char **argv)
 	int spiFile1;
 	int spiFile2;
         struct gpioInfo cs[3] = {{27}, {10}, {31}};
-
         struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {12}};
 
         FILE *file;
@@ -178,7 +186,7 @@ int main (int argc, char **argv)
 	float setLength[6] = {0, 0, 0, 0, 0, 0};
 
 	struct timeval startTime;
-	int time;
+	int time = 0;
 	int lastTime;
 	int progTime;
 
@@ -186,6 +194,8 @@ int main (int argc, char **argv)
 	float lastError[6];
 
 	int i, j, k, l;
+
+	float lb[6];
 
 	if (setjmp (buf))
 		goto shutdown;
@@ -264,6 +274,8 @@ int main (int argc, char **argv)
 
 	puts ("JUMPPED");
 
+	sleep (1);
+
 	gettimeofday (&startTime, NULL);
 	progTime = 0;
 	i = 0;
@@ -284,11 +296,12 @@ LOOP:
 			}
 			progTime += timeStep;
 			i++;
+			printf ("%d, %f, %f, %f, %f, %f, %f\n", time, lb[0], lb[1], lb[2], lb[3], lb[4], lb[5]);
 		}
 
 		for (j = 0, k = 0, l = 0; j < 3; j += 1, k += 2, l += 4) {
 			float lengthSensor[2];
-			int PIDOut;
+			float PIDOut;
 
 			spiRead (spiFile1, spiFile2, cs[j].file, lengthSensor);
 			if (lengthSensor[0] > 45.0) {
@@ -300,29 +313,39 @@ LOOP:
 				goto shutdown;
 			}
 
-			PIDOut = (int)(P[k] * (setLength[k] - lengthSensor[0] + 17.0));
-			if (abs (PIDOut) > 400) {
-				fprintf (stderr, "PID out is %d, past the 400 tick limit\n", PIDOut);
-				goto shutdown;
+			lastError[k] = error[k];
+			error[k] = setLength[k] - lengthSensor[0] + 17.0;
+			PIDOut = (P[k] * PScale * error[k]) + (D[k] * DScale * ((error[k] - lastError[k]) / ((float)(time - lastTime))));
+
+			if (PIDOut > 0) {
+				pruDataMem_int[motor[l]] = (int)((PIDOut * TOP_UP) + 0.5);
+				pruDataMem_int[motor[l + 1]] = (int)((PIDOut * BOTTOM_UP) + 0.5);
+			} else {
+				pruDataMem_int[motor[l]] = (int)((PIDOut * TOP_DOWN) + 0.5);
+				pruDataMem_int[motor[l + 1]] = (int)((PIDOut * BOTTOM_DOWN) + 0.5);
 			}
 
-			pruDataMem_int[motor[l]] = PIDOut;
-			pruDataMem_int[motor[l + 1]] = PIDOut;
+			lastError[k + 1] = error[k + 1];
+			error[k + 1] = setLength[k + 1] - lengthSensor[1] + 17.0;
+			PIDOut = (P[k + 1] * PScale * error[k + 1]) + (D[k + 1] * DScale * ((error[k + 1] - lastError[k + 1]) / ((float)(time - lastTime))));
 
-			PIDOut = (int)(P[k + 1] * (setLength[k + 1] - lengthSensor[1] + 17.0));
-			if (abs (PIDOut) > 400) {
-				fprintf (stderr, "PID out is %d, past the 400 tick limit\n", PIDOut);
-				goto shutdown;
+			if (PIDOut > 0) {
+				pruDataMem_int[motor[l + 2]] = (int)((PIDOut * TOP_UP) + 0.5);
+				pruDataMem_int[motor[l + 3]] = (int)((PIDOut * BOTTOM_UP) + 0.5);
+			} else {
+				pruDataMem_int[motor[l + 2]] = (int)((PIDOut * TOP_DOWN) + 0.5);
+				pruDataMem_int[motor[l + 3]] = (int)((PIDOut * BOTTOM_DOWN) + 0.5);
 			}
 
-			pruDataMem_int[motor[l + 2]] = PIDOut;
-			pruDataMem_int[motor[l + 3]] = PIDOut;
+			lb[k] = lengthSensor[0];
+			lb[k + 1] = lengthSensor[1];
 		}
         }
 
 	fseek (file, ((loopAddr * 6) + 3) * sizeof(float), SEEK_SET);
 	gettimeofday (&startTime, NULL);
 	progTime = 0;
+	time = 0;
 	i = loopAddr;
 
 	goto LOOP;
@@ -332,7 +355,12 @@ shutdown:
         for (i = 0; i < 12; i++)
 		pruDataMem_int[i] = 0;
 
-	sleep (5);
+	for (i = 0; i < 12; puts ("")) {
+                if ((abs (pruDataMem_int[91 + i]) >> 1) == 0)
+                        i++;
+                for (j = 0; j < 12; j++)
+                        printf ("%d, ", pruDataMem_int[91 + j]);
+        }
 
         for (i = 0; i < 6; i++)
                 gpioOutputAbscond (&controlValve[i], "0");
