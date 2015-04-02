@@ -315,7 +315,7 @@ LOOP:
 
 			lastError[k] = error[k];
 			error[k] = setLength[k] - lengthSensor[0] + 17.0;
-			PIDOut = (P[k] * PScale * error[k]) + (D[k] * DScale * ((error[k] - lastError[k]) / ((float)(time - lastTime))));
+			PIDOut = (P[k] * PScale * error[k]) - (D[k] * DScale * ((error[k] - lastError[k]) / ((float)(time - lastTime))));
 
 			if (PIDOut > 0) {
 				pruDataMem_int[motor[l]] = (int)((PIDOut * TOP_UP) + 0.5);
@@ -327,7 +327,7 @@ LOOP:
 
 			lastError[k + 1] = error[k + 1];
 			error[k + 1] = setLength[k + 1] - lengthSensor[1] + 17.0;
-			PIDOut = (P[k + 1] * PScale * error[k + 1]) + (D[k + 1] * DScale * ((error[k + 1] - lastError[k + 1]) / ((float)(time - lastTime))));
+			PIDOut = (P[k + 1] * PScale * error[k + 1]) - (D[k + 1] * DScale * ((error[k + 1] - lastError[k + 1]) / ((float)(time - lastTime))));
 
 			if (PIDOut > 0) {
 				pruDataMem_int[motor[l + 2]] = (int)((PIDOut * TOP_UP) + 0.5);
@@ -342,6 +342,9 @@ LOOP:
 		}
         }
 
+	if (loopAddr == stepNum)
+		goto shutdown;
+
 	fseek (file, ((loopAddr * 6) + 3) * sizeof(float), SEEK_SET);
 	gettimeofday (&startTime, NULL);
 	progTime = 0;
@@ -355,12 +358,7 @@ shutdown:
         for (i = 0; i < 12; i++)
 		pruDataMem_int[i] = 0;
 
-	for (i = 0; i < 12; puts ("")) {
-                if ((abs (pruDataMem_int[91 + i]) >> 1) == 0)
-                        i++;
-                for (j = 0; j < 12; j++)
-                        printf ("%d, ", pruDataMem_int[91 + j]);
-        }
+	sleep (3);
 
         for (i = 0; i < 6; i++)
                 gpioOutputAbscond (&controlValve[i], "0");
