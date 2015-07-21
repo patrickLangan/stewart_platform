@@ -1,9 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-
-#include <time.h>
 
 #include <signal.h>
 #include <setjmp.h>
@@ -16,7 +11,20 @@
 #include <fcntl.h>
 #include <linux/spi/spidev.h>
 
-static float maxVelocity = 39.37e-6; //(in/(micro s))
+#include <math.h>
+
+#define TOP_UP 1.0
+#define TOP_DOWN 0.75
+#define BOTTOM_UP 1.0
+#define BOTTOM_DOWN 0.25
+
+static float P = 15;
+static float Ptop[6] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+static float Pbot[6] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+static float Pscale[6] = {1.0981766012, 1.3983207844, 0.9590670195, 0.8849966324, 1.0570398195, 0.7761107706};
+
+static float I = 0.0;
+static float D = 0.0;
 
 static int spiBits = 8;
 static int spiSpeed = 500000;
@@ -172,20 +180,7 @@ int main (int argc, char **argv)
         struct gpioInfo cs[3] = {{27}, {10}, {31}};
         struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {12}};
 
-	FILE *pidFile;
-	char *line = NULL;
-	char *tok;
-	float TOP_UP;
-	float TOP_DOWN;
-	float BOTTOM_UP;
-	float BOTTOM_DOWN;
-	float P = 15.0;
-	float I = 0.0;
-	float D = 0.0;
-	float pScale[6] = {0};
-
         FILE *file;
-	char filePath[255];
 	float fBuffer;
 	int stepNum;
 	int timeStep;
@@ -193,14 +188,8 @@ int main (int argc, char **argv)
 	int loopStart;
 	float setLength[6] = {0, 0, 0, 0, 0, 0};
 
-        FILE *outFile;
-	size_t len;
-	time_t timep;
-	struct tm tm;
-	float lengthBuffer[6];
-
 	struct timeval startTime;
-	int curTime = 0;
+	int time = 0;
 	int lastTime;
 	int progTime;
 
@@ -211,25 +200,22 @@ int main (int argc, char **argv)
 
 	int i, j, k, l;
 
+	float lb[6];
+        FILE *outFile;
+
 	if (setjmp (buf))
 		goto shutdown;
 
 	signal (SIGINT, signalCatcher);
 
-	if (argc != 2) {
-		fprintf (stderr, "Expects one input, the name of the file to run.\n");
-		return 1;
-	}
+        if (
+                ((argc < 2) ? fprintf (stderr, "You need to give the input file name.\n") : 0) ||
+                ((argc > 3) ? fprintf (stderr, "Too many arguments\n") : 0)
+        )
+                return 1;
 
-	len = strlen (argv[1]);
-	if (!(argv[1][len - 3] == 'b' && argv[1][len - 2] == 'i' && argv[1][len - 1] == 'n')) {
-		fprintf (stderr, "Expects a .bin file.\n");
-		return 1;
-	}
-
-	sprintf (filePath, "binFiles/%s", argv[1]);
-        if (!(file = fopen (filePath, "r"))) {
-                fprintf (stderr, "Failed to open input file: %s\n", argv[1]);
+        if (!(file = fopen (argv[1], "r"))) {
+                fprintf (stderr, "Failed to open file\n");
                 return 1;
         }
 
@@ -242,52 +228,14 @@ int main (int argc, char **argv)
         fread (&fBuffer, sizeof(float), 1, file);
 	loopStart = (int)fBuffer;
 
-	printf ("stepNum: %d\ntimeStep: %d\nloopEnd: %d\nloopStart: %d\n", stepNum, timeStep, loopEnd, loopStart);
+	printf ("stepNum: %d\ntimeStep: %d\nloopEnd: %d\nloopStart: %d\n\n", stepNum, timeStep, loopEnd, loopStart);
 
-	argv[1][len - 4] = '\0';
-
-	if (!(pidFile = fopen ("pidFile.txt", "r"))) {
-		fprintf (stderr, "Filed to open PID file\n");
-		return 1;
+	if (argc == 3) {
+		outFile = fopen (argv[2], "w");
+		fprintf (outFile, "BinaryFileName: %s", argv[1]);
+		fprintf (outFile, "stepNum: %d\ntimeStep: %d\nloopEnd: %d\nloopStart: %d\n\n", stepNum, timeStep, loopEnd, loopStart);
+		fprintf (outFile, "t, c1, c2, c3, c4, c5, c6\n");
 	}
-
-	while (1) {
-		if (getline (&line, &len, pidFile) == -1) {
-			fprintf (stderr, "Could not find %s in pidFile.txt.\n", argv[1]);
-			return 1;
-		}
-		tok = strtok(line, "\t");
-		if (strcmp (argv[1], tok) == 0) {
-			tok = strtok(NULL, "\t");
-			P = atof (tok);
-			tok = strtok(NULL, "\t");
-			I = atof (tok);
-			tok = strtok(NULL, "\t");
-			D = atof (tok);
-			tok = strtok(NULL, "\t");
-			TOP_UP = atof (tok);
-			tok = strtok(NULL, "\t");
-			TOP_DOWN = atof (tok);
-			tok = strtok(NULL, "\t");
-			BOTTOM_UP = atof (tok);
-			tok = strtok(NULL, "\t");
-			BOTTOM_DOWN = atof (tok);
-			for (i = 0; i < 6; i++) {
-				tok = strtok(NULL, "\t");
-				pScale[i] = atof (tok);
-			}
-			break;
-		}
-	}
-	free (line);
-	fclose (pidFile);
-
-	printf ("\nP: %f\nI: %f\nD: %f\n", P, I, D);
-	printf ("\ntopUp: %f\ntopDown: %f\nbottomUp: %f\nbottomDown: %f\n", TOP_UP, TOP_DOWN, BOTTOM_UP, BOTTOM_DOWN);
-	printf ("pScale: ");
-	for (i = 0; i < 5; i++)
-		printf ("%f, ", pScale[i]);
-	printf ("%f\n", pScale[5]);
 
 	pruInit ();
 
@@ -341,45 +289,34 @@ int main (int argc, char **argv)
 
         sleep (1);
 
-	timep = time (NULL);
-	tm = *localtime (&timep);
-	sprintf (filePath, "csvFiles/%s_%d-%d-%d_%d-%d-%d.csv", argv[1], tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-	if (!(outFile = fopen (filePath, "w"))) {
-		fprintf (stderr, "Filed to open output file: %s\n", argv[1]);
-		return 1;
-	}
-
-	printf ("\nStarted at: %02d:%02d:%02d\n\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
-
-	fprintf (outFile, "t, c1, c2, c3, c4, c5, c6, ");
-	fprintf (outFile, "stepNum, %d, timeStep, %d, loopEnd, %d, loopStart, %d, ", stepNum, timeStep, loopEnd, loopStart);
-	fprintf (outFile, "P, %f, I, %f, D, %f, ", P, I, D);
-	fprintf (outFile, "topUp, %f, topDown, %f, bottomUp, %f, bottomDown, %f\n", TOP_UP, TOP_DOWN, BOTTOM_UP, BOTTOM_DOWN);
-	fprintf (outFile, "pScale, ");
-	for (i = 0; i < 6; i++)
-		fprintf (outFile, "%f, ", pScale[i]);
-
 	gettimeofday (&startTime, NULL);
 	progTime = timeStep;
 	i = 0;
 LOOP:
 	for (; i < loopEnd; ) {
-		struct timeval loopTime;
+		struct timeval curTime;
 
-		lastTime = curTime;
-		gettimeofday (&loopTime, NULL);
-		curTime = ((loopTime.tv_sec - startTime.tv_sec) * 1000000) + loopTime.tv_usec - startTime.tv_usec;
-		if (curTime > progTime) {
+		lastTime = time;
+		gettimeofday (&curTime, NULL);
+		time = ((curTime.tv_sec - startTime.tv_sec) * 1000000) + curTime.tv_usec - startTime.tv_usec;
+		if (time > progTime) {
 			for (j = 0; j < 6; j++)
 				fread (&setLength[j], sizeof(float), 1, file);
 
 			progTime += timeStep;
 			i++;
 
-			fprintf (outFile, "%d, ", curTime);
-			for (j = 0; j < 5; j++)
-				fprintf (outFile, "%f, ", lengthBuffer[j] - 17.0);
-			fprintf (outFile, "%f\n", lengthBuffer[5] - 17.0);
+			if (argc == 3) {
+				fprintf (outFile, "%d, ", time);
+				for (j = 0; j < 5; j++)
+					fprintf (outFile, "%f, ", lb[j] - 17.0);
+				fprintf (outFile, "%f\n", lb[5] - 17.0);
+			} else {
+				printf ("%d, ", time);
+				for (j = 0; j < 5; j++)
+					printf ("%f, ", lb[j] - 17.0);
+				printf ("%f\n", lb[5] - 17.0);
+			}
 		}
 
 		for (j = 0, k = 0, l = 0; j < 3; j += 1, k += 2, l += 4) {
@@ -388,63 +325,61 @@ LOOP:
 			float dt;
 
 			spiRead (spiFile1, spiFile2, cs[j].file, lengthSensor);
+			if (lengthSensor[0] > 46.0) {
+				fprintf (stderr, "Length sensor %d is %f, past the 29 inch limit\n", k + 1, lengthSensor[0] - 17.0);
+				goto shutdown;
+			}
+			if (lengthSensor[1] > 46.0) {
+				fprintf (stderr, "Length sensor %d is %f, past the 29 inch limit\n", k + 2, lengthSensor[1] - 17.0);
+				goto shutdown;
+			}
+			if (lengthSensor[0] < 18.0) {
+				fprintf (stderr, "Length sensor %d is %f, below the 1 inch limit\n", k + 1, lengthSensor[0] - 17.0);
+				goto shutdown;
+			}
+			if (lengthSensor[1] < 18.0) {
+				fprintf (stderr, "Length sensor %d is %f, below the 1 inch limit\n", k + 2, lengthSensor[1] - 17.0);
+				goto shutdown;
+			}
 
-			dt = (float)(curTime - lastTime);
+			dt = (float)(time - lastTime);
 
 			lastError[k] = error[k];
 			error[k] = setLength[k] - lengthSensor[0] + 17.0;
 			intError[k] += error[k] * dt;
 			dError = (error[k] - lastError[k]) / dt;
-			
-			if (lengthSensor[0] > 46.0 && dError < maxVelocity) {
-				fprintf (stderr, "Length sensor %d is %f, past the 46 inch limit\n", k + 1, lengthSensor[0]);
-				goto shutdown;
-			} else if (lengthSensor[0] < 18.0 && dError < maxVelocity) {
-				fprintf (stderr, "Length sensor %d is %f, below the 18 inch limit\n", k + 1, lengthSensor[0]);
-				goto shutdown;
-			}
-			
-			PIDOut = (P * pScale[k] * error[k]) + (I * intError[k]) - (D * dError);
+			PIDOut = (P * Pscale[k] * error[k]) + (I * intError[k]) - (D * dError);
 
 			if (PIDOut > 0) {
-				pruDataMem_int[motor[l]] = (int)((PIDOut * TOP_UP) + 0.5);
-				pruDataMem_int[motor[l + 1]] = (int)((PIDOut * BOTTOM_UP) + 0.5);
+				pruDataMem_int[motor[l]] = (int)((PIDOut * Ptop[k] * TOP_UP) + 0.5);
+				pruDataMem_int[motor[l + 1]] = (int)((PIDOut * Pbot[k] * BOTTOM_UP) + 0.5);
 			} else {
-				pruDataMem_int[motor[l]] = (int)((PIDOut * TOP_DOWN) + 0.5);
-				pruDataMem_int[motor[l + 1]] = (int)((PIDOut * BOTTOM_DOWN) + 0.5);
+				pruDataMem_int[motor[l]] = (int)((PIDOut * Ptop[k] * TOP_DOWN) + 0.5);
+				pruDataMem_int[motor[l + 1]] = (int)((PIDOut * Pbot[k] * BOTTOM_DOWN) + 0.5);
 			}
 
 			lastError[k + 1] = error[k + 1];
 			error[k + 1] = setLength[k + 1] - lengthSensor[1] + 17.0;
 			intError[k + 1] += error[k + 1] * dt;
 			dError = (error[k + 1] - lastError[k + 1]) / dt;
-			
-			if (lengthSensor[1] > 46.0 && dError < maxVelocity) {
-				fprintf (stderr, "Length sensor %d is %f, past the 46 inch limit\n", k + 2, lengthSensor[1]);
-				goto shutdown;
-			} else if (lengthSensor[1] < 18.0 && dError < maxVelocity) {
-				fprintf (stderr, "Length sensor %d is %f, below the 18 inch limit\n", k + 2, lengthSensor[1]);
-				goto shutdown;
-			}
-			
-			PIDOut = (P * pScale[k + 1] * error[k + 1]) + (I * intError[k + 1]) - (D * dError);
+			PIDOut = (P * Pscale[k + 1] * error[k + 1]) + (I * intError[k + 1]) - (D * dError);
 
 			if (PIDOut > 0) {
-				pruDataMem_int[motor[l + 2]] = (int)((PIDOut * TOP_UP) + 0.5);
-				pruDataMem_int[motor[l + 3]] = (int)((PIDOut * BOTTOM_UP) + 0.5);
+				pruDataMem_int[motor[l + 2]] = (int)((PIDOut * Ptop[k + 1] * TOP_UP) + 0.5);
+				pruDataMem_int[motor[l + 3]] = (int)((PIDOut * Pbot[k + 1] * BOTTOM_UP) + 0.5);
 			} else {
-				pruDataMem_int[motor[l + 2]] = (int)((PIDOut * TOP_DOWN) + 0.5);
-				pruDataMem_int[motor[l + 3]] = (int)((PIDOut * BOTTOM_DOWN) + 0.5);
+				pruDataMem_int[motor[l + 2]] = (int)((PIDOut * Ptop[k + 1] * TOP_DOWN) + 0.5);
+				pruDataMem_int[motor[l + 3]] = (int)((PIDOut * Pbot[k + 1] * BOTTOM_DOWN) + 0.5);
 			}
 
-			lengthBuffer[k] = lengthSensor[0];
-			lengthBuffer[k + 1] = lengthSensor[1];
+			lb[k] = lengthSensor[0];
+			lb[k + 1] = lengthSensor[1];
 		}
         }
 	fseek (file, ((loopStart * 6) + 4) * sizeof(float), SEEK_SET);
 	gettimeofday (&startTime, NULL);
 	i = loopStart;
-	curTime = 0;
+	time = 0;
 	progTime = timeStep;
 	for (j = 0; j < 6; j++)
 		error[j] = 0;
@@ -456,7 +391,8 @@ shutdown:
         for (i = 0; i < 12; i++)
 		pruDataMem_int[i] = 0;
 
-	fclose (outFile);
+	if (argc == 3)
+		fclose (outFile);
 
 	sleep (3);
 

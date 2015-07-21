@@ -78,6 +78,7 @@ int gpioOutputAbscond (struct gpioInfo *gpio, char *value)
 int main (int argc, char **argv)
 {
 	struct gpioInfo controlValve[6] = {{65}, {66}, {67}, {68}, {69}, {12}};
+	int motors = 0;
 	int i, j;
 
 	if (setjmp (buf))
@@ -116,11 +117,18 @@ int main (int argc, char **argv)
 		for (i = 0; i < 12; i++)
 			pruDataMem_int[i] = atoi (argv[1]);
 
+/*
 	while (puts (""))
 		for (i = 0; i < 12; i++)
 			printf ("%d, ", pruDataMem_int[91 + i]);
+*/
+	pause ();
 
 shutdown:
+	for (i = 0; i < 12; i++)
+		printf ("%d, ", pruDataMem_int[91 + i]);
+	puts ("");
+
 	if (atoi (argv[3]) == 0)
 		for (i = 0; i < 12; i++)
 			pruDataMem_int[i] = -atoi (argv[2]);
@@ -128,12 +136,17 @@ shutdown:
 		for (i = 0; i < 12; i++)
 			pruDataMem_int[i] = atoi (argv[2]);
 
+	for (i = 0; i < 12; )
+		if ((abs (pruDataMem_int[91 + i]) >> 1) == atoi (argv[2]))
+			i++;
+/*
 	for (i = 0; i < 12; puts ("")) {
 		if ((abs (pruDataMem_int[91 + i]) >> 1) == atoi (argv[2]))
 			i++;
 		for (j = 0; j < 12; j++)
 			printf ("%d, ", pruDataMem_int[91 + j]);
 	}
+*/
 
 	for (i = 0; i < 6; i++)
                 gpioOutputAbscond (&controlValve[i], 0);

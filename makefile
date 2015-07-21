@@ -50,7 +50,7 @@ define tighten
 	rm tighten/tighten.o
 endef
 
-.PHONY: all control stepper dts stepper-pru spi gpio-enable loosen tighten
+.PHONY: all any control stepper dts stepper-pru spi gpio-enable loosen tighten
 
 all:
 	$(control)
@@ -60,6 +60,11 @@ all:
 	$(gpio-enable)
 	$(loosen)
 	$(tighten)
+
+any:
+	gcc -c $(file).c
+	gcc $(file).o -L/user/lib -lm -lprussdrv -lpthread -o $(file)
+	rm $(file).o
 
 control: control.c
 	$(control)
