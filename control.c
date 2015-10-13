@@ -17,8 +17,10 @@ void spiInit (char *file, int *fd)
 	ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
 }
 
-int spiRead (int fd)
+float spiRead (int fd)
 {
+	int temp;
+
 	uint8_t tx[3] = {1, 1, 1};
 	uint8_t rx[3];
 	struct spi_ioc_transfer tr;
@@ -31,19 +33,26 @@ int spiRead (int fd)
 
 	ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
 
-        return (rx[0] << 16) | (rx[1] << 8) | rx[2];
+        temp = (rx[0] << 16) | (rx[1] << 8) | rx[2];
+
+	if (temp & (1 << 23))
+		temp |= 0xFF000000;
+
+	return (float)temp * 1.164153357e-4; //(0.5 * 3.3 / 128) / (2^23 - 1) / (2e-3 * 3.3) * 500
 }
 
 int main (int argc, char **argv)
 {
 	int spiFile;
-	int force;
+	float force;
+	struct timespec waitTime = {0, 100000000};
 
 	spiInit ("/dev/spidev1.0", &spiFile);
 
 	while (1) {
+		nanosleep (&waitTime, NULL);
 		force = spiRead (spiFile);
-		printf ("%d\n", force);
+		printf ("%f\n", force);
 	}
 
 	close (spiFile);
