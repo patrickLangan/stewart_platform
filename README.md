@@ -10,7 +10,6 @@
 		Data0:  P9_29 (MISO)
 
 ##TODO
-- Length sensors
 - Accelerometer
 - Pressure sensors
 - Flow sensor

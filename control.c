@@ -47,20 +47,29 @@ unsigned int bitReverse (unsigned int x)
 
 int main (int argc, char **argv)
 {
-	int spiFile;
+	int spiFile1;
+	int spiFile2;
 	int temp;
 	float force;
-	float length;
+	float length1;
+	float length2;
 	struct timespec waitTime = {0, 100000000};
 
-	spiInit ("/dev/spidev1.0", &spiFile);
+	spiInit ("/dev/spidev1.0", &spiFile1);
+	spiInit ("/dev/spidev2.0", &spiFile2);
 
 	while (1) {
 		nanosleep (&waitTime, NULL);
-		temp = spiRead24 (spiFile);
+
+		temp = spiRead24 (spiFile1);
 		temp = bitReverse (temp);
-		length = (float)(temp >> 8) * 3.906379093e-4;
-		printf ("%f\n", length);
+		length1 = (float)(temp >> 8) * 3.906379093e-4;
+
+		temp = spiRead24 (spiFile2);
+		temp = bitReverse (temp);
+		length2 = (float)(temp >> 8) * 3.906379093e-4;
+
+		printf ("%f, %f\n", length1, length2);
 	}
 
 /*
@@ -74,7 +83,8 @@ int main (int argc, char **argv)
 	}
 */
 
-	close (spiFile);
+	close (spiFile1);
+	close (spiFile2);
 
 	return 0;
 }
