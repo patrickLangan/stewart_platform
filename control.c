@@ -1,5 +1,8 @@
 #include <stdio.h>
 
+#include <signal.h>
+#include <setjmp.h>
+
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
@@ -11,6 +14,13 @@
 
 static int spiBits = 8;
 static int spiSpeed = 20000;
+
+static jmp_buf buf;
+
+void signalCatcher (int null)
+{
+	longjmp (buf, 1);
+}
 
 int i2cRead (int handle)
 {
@@ -72,6 +82,11 @@ int main (int argc, char **argv)
 	float pressure2;
 	struct timespec waitTime = {0, 100000000};
 
+	if (setjmp (buf))
+		goto shutdown;
+
+	signal (SIGINT, signalCatcher);
+
 /*
 	spiInit ("/dev/spidev1.0", &spiFile1);
 	spiInit ("/dev/spidev2.0", &spiFile2);
@@ -118,6 +133,8 @@ int main (int argc, char **argv)
 		printf ("%f\n", force);
 	}
 */
+
+shutdown:
 
 /*
 	close (spiFile1);
