@@ -21,11 +21,11 @@
 
 ##TODO
 - Accelerometer
-- Pressure sensors
 - Flow sensor
 - Temperature sensor
 - Stepper valves
 - Directional control valve
+- Calibration
 - Error checking
 - General cleanup
 

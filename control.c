@@ -5,8 +5,21 @@
 #include <fcntl.h>
 #include <linux/spi/spidev.h>
 
+#define PRESSURE_SCALE 0.0091558323
+#define LENGTH_SCALE 3.906379093e-4
+#define FORCE_SCALE 1.164153357e-4 //(0.5 * 3.3 / 128) / (2^23 - 1) / (2e-3 * 3.3) * 500
+
 static int spiBits = 8;
 static int spiSpeed = 20000;
+
+int i2cRead (int handle)
+{
+	char buffer[2];
+
+	i2c_read (handle, buffer, 2);
+
+	return (int)buffer[0] << 8 | (int)buffer[1];
+}
 
 void spiInit (char *file, int *fd)
 {
@@ -49,28 +62,51 @@ int main (int argc, char **argv)
 {
 	int spiFile1;
 	int spiFile2;
+	int pressHandle1;
+	int pressHandle2;
 	int temp;
 	float force;
 	float length1;
 	float length2;
+	float pressure1;
+	float pressure2;
 	struct timespec waitTime = {0, 100000000};
 
+/*
 	spiInit ("/dev/spidev1.0", &spiFile1);
 	spiInit ("/dev/spidev2.0", &spiFile2);
+*/
 
+	pressHandle1 = i2c_open (1, 0x28);
+	pressHandle2 = i2c_open (2, 0x28);
+
+	while (1) {
+		nanosleep (&waitTime, NULL);
+
+		temp = i2cRead (pressHandle1);
+		pressure1 = (float)temp * PRESSURE_SCALE;
+
+		temp = i2cRead (pressHandle2);
+		pressure2 = (float)temp * PRESSURE_SCALE;
+
+		printf ("%f, %f\n", pressure1, pressure2);
+	}
+
+/*
 	while (1) {
 		nanosleep (&waitTime, NULL);
 
 		temp = spiRead24 (spiFile1);
 		temp = bitReverse (temp);
-		length1 = (float)(temp >> 8) * 3.906379093e-4;
+		length1 = (float)(temp >> 8) * LENGTH_SCALE;
 
 		temp = spiRead24 (spiFile2);
 		temp = bitReverse (temp);
-		length2 = (float)(temp >> 8) * 3.906379093e-4;
+		length2 = (float)(temp >> 8) * LENGTH_SCALE;
 
 		printf ("%f, %f\n", length1, length2);
 	}
+*/
 
 /*
 	while (1) {
@@ -78,13 +114,15 @@ int main (int argc, char **argv)
 		temp = spiRead24 (spiFile);
 		if (temp & (1 << 23))
 			temp |= 0xFF000000;
-		force = (float)temp * 1.164153357e-4; //(0.5 * 3.3 / 128) / (2^23 - 1) / (2e-3 * 3.3) * 500
+		force = (float)temp * FORCE_SCALE;
 		printf ("%f\n", force);
 	}
 */
 
+/*
 	close (spiFile1);
 	close (spiFile2);
+*/
 
 	return 0;
 }
