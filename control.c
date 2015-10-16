@@ -8,6 +8,9 @@
 #include <fcntl.h>
 #include <linux/spi/spidev.h>
 
+#include <prussdrv.h>
+#include <pruss_intc_mapping.h>
+
 #define PRESSURE_SCALE 0.0091558323
 #define LENGTH_SCALE 3.906379093e-4
 #define FORCE_SCALE 1.164153357e-4 //(0.5 * 3.3 / 128) / (2^23 - 1) / (2e-3 * 3.3) * 500
@@ -15,11 +18,47 @@
 static int spiBits = 8;
 static int spiSpeed = 20000;
 
+static void *pruDataMem;
+static unsigned int *pruDataMem_int;
+
 static jmp_buf buf;
 
 void signalCatcher (int null)
 {
 	longjmp (buf, 1);
+}
+
+int pruInit (void)
+{
+	tpruss_intc_initdata intc = PRUSS_INTC_INITDATA;
+
+	if (prussdrv_init ()) {
+		fprintf (stderr, "prussdrw_init() failed\n");
+		return 1;
+	}
+
+	if (prussdrv_open (PRU_EVTOUT_0)) {
+		fprintf (stderr, "prussdrv_open(PRU_EVTOUT_0) failed\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+
+int pruTerminate (void)
+{
+	if (prussdrv_pru_disable (0)) {
+		fprintf (stderr, "prussdrv_pru_disable(0) failed\n");
+		return 1;
+	}
+
+	if (prussdrv_exit()) {
+		fprintf (stderr, "prussdrv_exit() failed\n");
+		return 1;
+	}
+
+	return 0;
 }
 
 int i2cRead (int handle)
@@ -87,6 +126,16 @@ int main (int argc, char **argv)
 
 	signal (SIGINT, signalCatcher);
 
+	pruInit ();
+
+	prussdrv_map_prumem (PRUSS0_PRU0_DATARAM, &pruDataMem);
+	pruDataMem_int = (unsigned int*) pruDataMem;
+
+	if (prussdrv_exec_program (0, "./length.bin")) {
+		fprintf (stderr, "prussdrv_exec_program(0, './length.bin') failed\n");
+		return 1;
+	}
+
 /*
 	spiInit ("/dev/spidev1.0", &spiFile1);
 	spiInit ("/dev/spidev2.0", &spiFile2);
@@ -95,6 +144,21 @@ int main (int argc, char **argv)
 	pressHandle1 = i2c_open (1, 0x28);
 	pressHandle2 = i2c_open (2, 0x28);
 
+	while (1) {
+		temp = pruDataMem_int[0];
+		if (temp & (1 << 15))
+			temp |= 0xFFFF0000;
+		length1 = (float)temp * LENGTH_SCALE;
+
+		temp = pruDataMem_int[1];
+		if (temp & (1 << 15))
+			temp |= 0xFFFF0000;
+		length2 = (float)temp * LENGTH_SCALE;
+
+		printf ("%f, %f\n", length1, length2);
+	}
+
+/*
 	while (1) {
 		nanosleep (&waitTime, NULL);
 
@@ -106,6 +170,7 @@ int main (int argc, char **argv)
 
 		printf ("%f, %f\n", pressure1, pressure2);
 	}
+*/
 
 /*
 	while (1) {
@@ -135,6 +200,8 @@ int main (int argc, char **argv)
 */
 
 shutdown:
+
+	pruTerminate ();
 
 /*
 	close (spiFile1);

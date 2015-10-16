@@ -19,6 +19,11 @@
 
 	//Note: cannot enable both i2c-1 and spi-0
 
+	Length sensor - PRU1
+		Clock:		P8_11
+		Sensor1Data:	P8_15
+		Sensor2Data:	P8_16
+
 ##TODO
 - Accelerometer
 - Flow sensor
