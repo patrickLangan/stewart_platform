@@ -18,8 +18,10 @@
 static int spiBits = 8;
 static int spiSpeed = 20000;
 
-static void *pruDataMem;
-static unsigned int *pruDataMem_int;
+static void *pruDataMem0;
+static void *pruDataMem1;
+static unsigned int *pruDataMem0_int;
+static unsigned int *pruDataMem1_int;
 
 static jmp_buf buf;
 
@@ -42,6 +44,11 @@ int pruInit (void)
 		return 1;
 	}
 
+	if (prussdrv_open (PRU_EVTOUT_1)) {
+		fprintf (stderr, "prussdrv_open(PRU_EVTOUT_1) failed\n");
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -50,6 +57,11 @@ int pruTerminate (void)
 {
 	if (prussdrv_pru_disable (0)) {
 		fprintf (stderr, "prussdrv_pru_disable(0) failed\n");
+		return 1;
+	}
+
+	if (prussdrv_pru_disable (1)) {
+		fprintf (stderr, "prussdrv_pru_disable(1) failed\n");
 		return 1;
 	}
 
@@ -128,11 +140,19 @@ int main (int argc, char **argv)
 
 	pruInit ();
 
-	prussdrv_map_prumem (PRUSS0_PRU0_DATARAM, &pruDataMem);
-	pruDataMem_int = (unsigned int*) pruDataMem;
+	prussdrv_map_prumem (PRUSS0_PRU0_DATARAM, &pruDataMem0);
+	pruDataMem0_int = (unsigned int*) pruDataMem0;
+
+	prussdrv_map_prumem (PRUSS0_PRU1_DATARAM, &pruDataMem1);
+	pruDataMem1_int = (unsigned int*) pruDataMem1;
 
 	if (prussdrv_exec_program (0, "./length.bin")) {
 		fprintf (stderr, "prussdrv_exec_program(0, './length.bin') failed\n");
+		return 1;
+	}
+
+	if (prussdrv_exec_program (1, "./stepper.bin")) {
+		fprintf (stderr, "prussdrv_exec_program(1, './stepper.bin') failed\n");
 		return 1;
 	}
 
@@ -145,18 +165,24 @@ int main (int argc, char **argv)
 	pressHandle2 = i2c_open (2, 0x28);
 
 	while (1) {
-		temp = pruDataMem_int[0];
+		printf ("%d\n", pruDataMem1_int[0]);
+	}
+
+/*
+	while (1) {
+		temp = pruDataMem0_int[0];
 		if (temp & (1 << 15))
 			temp |= 0xFFFF0000;
 		length1 = (float)temp * LENGTH_SCALE;
 
-		temp = pruDataMem_int[1];
+		temp = pruDataMem0_int[1];
 		if (temp & (1 << 15))
 			temp |= 0xFFFF0000;
 		length2 = (float)temp * LENGTH_SCALE;
 
 		printf ("%f, %f\n", length1, length2);
 	}
+*/
 
 /*
 	while (1) {
