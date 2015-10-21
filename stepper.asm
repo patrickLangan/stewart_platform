@@ -3,30 +3,10 @@
 
 #define CONST_PRUCFG C4
 
-#define GPIO0   0x44E07000
-#define GPIO1	0x4804C000 
-#define GPIO2	0x481AC000 
-
-#define GPIO_DATAIN		0x138
-#define GPIO_CLEARDATAOUT	0x190
-#define GPIO_SETDATAOUT		0x194
-
 #define CONST_PRUDRAM C24
-#define CTBIR_0 0x22020
 #define CTBIR_1 0x22024
 
-.macro READGPIO
-.mparam gpio, pin, reg, out
-	MOV reg, gpio | GPIO_DATAIN
-        LBBO out, reg, 0, 4
-
-	QBBS ON, out, pin
-	MOV out, 0
-	JMP OFF
-ON:
-	MOV out, 1
-OFF:
-.endm
+#define STP_TIME 1000000
 
 .macro WAIT
 .mparam reg, clicks
@@ -48,10 +28,39 @@ START:
 	MOV r1, CTBIR_1
 	SBBO r0, r1, #0x00, 4
 
+	MOV r0, 0
+	MOV r1, 0
+	MOV r2, 1
 LOOP1:
-	MOV r0, 117
-	SBCO r0, CONST_PRUDRAM, 0, 4
+	LBCO r3, CONST_PRUDRAM, 0, 4
+	LBCO r4, CONST_PRUDRAM, 4, 4
+
+	QBEQ NXT_MOT, r0, r3
+	QBGT POS_DIR, r0, r3
+	CLR r30, r30, 2
+	SUB r0, r0, 1
+	JMP STEP
+POS_DIR:
+	SET r30, r30, 2
+	ADD r0, r0, 1
+STEP:
+	XOR r30, r30, 1 << 0
+
+NXT_MOT:
+	QBEQ OUT2, r1, r4
+	QBGT POS_DR2, r1, r4
+	CLR r30, r30, 3
+	SUB r1, r1, 1
+	JMP STP2
+POS_DR2:
+	SET r30, r30, 3
+	ADD r1, r1, 1
+STP2:
+	XOR r30, r30, 1 << 1
+
+OUT2:
+	WAIT r3, STP_TIME
 	JMP LOOP1
 
-        HALT
+HALT
 

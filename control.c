@@ -165,7 +165,20 @@ int main (int argc, char **argv)
 	pressHandle2 = i2c_open (2, 0x28);
 
 	while (1) {
-		printf ("%d\n", pruDataMem1_int[0]);
+		temp = pruDataMem0_int[0];
+		if (temp & (1 << 15))
+			temp |= 0xFFFF0000;
+		length1 = (float)temp * LENGTH_SCALE;
+
+		temp = pruDataMem0_int[1];
+		if (temp & (1 << 15))
+			temp |= 0xFFFF0000;
+		length2 = (float)temp * LENGTH_SCALE;
+
+		pruDataMem1_int[0] = abs ((int)(length1 * 100.0));
+		pruDataMem1_int[1] = abs ((int)(length2 * 100.0));
+
+		printf ("%d, %d\n", (int)(length1 * 100.0), (int)(length2 * 100.0));
 	}
 
 /*
