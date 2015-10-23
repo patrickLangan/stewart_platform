@@ -74,11 +74,11 @@ OUT:
 
 	QBEQ NXT_MOT, r0, r3
 	QBGT POS_DIR, r0, r3
-	CLR r30, r30, 2
+	SET r30, r30, 2
 	SUB r0, r0, 1
 	JMP STEP
 POS_DIR:
-	SET r30, r30, 2
+	CLR r30, r30, 2
 	ADD r0, r0, 1
 STEP:
 	XOR r30, r30, 1 << 0
@@ -86,11 +86,11 @@ STEP:
 NXT_MOT:
 	QBEQ OUT2, r1, r4
 	QBGT POS_DR2, r1, r4
-	CLR r30, r30, 3
+	SET r30, r30, 3
 	SUB r1, r1, 1
 	JMP STP2
 POS_DR2:
-	SET r30, r30, 3
+	CLR r30, r30, 3
 	ADD r1, r1, 1
 STP2:
 	XOR r30, r30, 1 << 1
