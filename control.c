@@ -140,6 +140,14 @@ int main (int argc, char **argv)
 
 	pruInit ();
 
+	if (prussdrv_exec_program (1, "./coldStart.bin")) {
+		fprintf (stderr, "prussdrv_exec_program(1, './coldStart.bin') failed\n");
+		return 1;
+	}
+	puts ("Making sure all valves are closed before starting");
+	sleep (10);
+	puts ("Starting");
+
 	prussdrv_map_prumem (PRUSS0_PRU0_DATARAM, &pruDataMem0);
 	pruDataMem0_int = (unsigned int*) pruDataMem0;
 

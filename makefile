@@ -4,4 +4,5 @@ All:
 	rm control.o
 	pasm -b length.asm | grep Error
 	pasm -b stepper.asm | grep Error
+	pasm -b coldStart.asm | grep Error
 
