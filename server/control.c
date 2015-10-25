@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#define PRESSURE_SCALE 0.0022663493 //1.6 * 23.206 / 16383
 #define FORCE_SCALE 1.164153357e-4 //(0.5 * 3.3 / 128) / (2^23 - 1) / (2e-3 * 3.3) * 500
 
 static int spiBits = 8;
@@ -30,6 +31,23 @@ void spiInit (char *file, int *fd)
 	ioctl (*fd, SPI_IOC_RD_BITS_PER_WORD, &spiBits);
 	ioctl (*fd, SPI_IOC_WR_MAX_SPEED_HZ, &spiSpeed);
 	ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
+}
+
+float spiRead16 (int fd)
+{
+	uint8_t tx[2] = {0, 0};
+	uint8_t rx[2];
+	struct spi_ioc_transfer tr;
+
+	tr.tx_buf = (unsigned long)tx;
+	tr.rx_buf = (unsigned long)rx;
+	tr.len = 2;
+	tr.speed_hz = spiSpeed;
+	tr.bits_per_word = spiBits;
+
+	ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
+
+        return rx[1] << 8 | rx[2];
 }
 
 float spiRead24 (int fd)
@@ -88,6 +106,7 @@ int main (int argc, char **argv)
 	char buffer[255];
 
 	int temp;
+	float pressure;
 	float force;
 
 	struct timespec waitTime = {0, 100000000};
@@ -104,12 +123,19 @@ int main (int argc, char **argv)
 
 	while (1) {
 		nanosleep (&waitTime, NULL);
+
 		temp = spiRead24 (spiFile2);
 		if (temp & (1 << 23))
 			temp |= 0xFF000000;
 		force = (float)temp * FORCE_SCALE;
-
 		sprintf (buffer, "%f", force);
+		send (sock, buffer, 255, 0);
+
+		temp = spiRead16 (spiFile1);
+		if (temp & (1 << 15))
+			temp |= 0xFFFF0000;
+		pressure = (float)temp * PRESSURE_SCALE;
+		sprintf (buffer, "%f", pressure);
 		send (sock, buffer, 255, 0);
 	}
 

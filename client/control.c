@@ -108,8 +108,10 @@ int main (int argc, char **argv)
         char buffer[255];
 
         int temp;
+        float force;
         float length1;
         float length2;
+        float atmPressure;
         float pressure1;
         float pressure2;
 
@@ -152,6 +154,11 @@ int main (int argc, char **argv)
         sock = inetClientInit ("192.168.1.102");
 
         while (1) {
+                temp = i2cRead (pressHandle1);
+                pressure1 = (float)temp * PRESSURE_SCALE;
+                temp = i2cRead (pressHandle2);
+                pressure2 = (float)temp * PRESSURE_SCALE;
+
                 temp = pruDataMem0_int[0];
                 if (temp & (1 << 15))
                         temp |= 0xFFFF0000;
@@ -166,34 +173,13 @@ int main (int argc, char **argv)
                 pruDataMem1_int[1] = (int)(length2 * 100.0);
 
                 recv (sock, buffer, 255, 0);
+                force = atof (buffer);
 
-                printf ("%d, %d, %f\n", (int)(length1 * 100.0), (int)(length2 * 100.0), atof (buffer));
-        }
+                recv (sock, buffer, 255, 0);
+                atmPressure = atof (buffer);
 
-/*
-        while (1) {
-                temp = pruDataMem0_int[0];
-                if (temp & (1 << 15))
-                        temp |= 0xFFFF0000;
-                length1 = (float)temp * LENGTH_SCALE;
-                temp = pruDataMem0_int[1];
-                if (temp & (1 << 15))
-                        temp |= 0xFFFF0000;
-                length2 = (float)temp * LENGTH_SCALE;
-                printf ("%f, %f\n", length1, length2);
+                printf ("%d, %d, %f, %f, %f, %f\n", (int)(length1 * 100.0), (int)(length2 * 100.0), pressure1, pressure2, atmPressure, force);
         }
-*/
-
-/*
-        while (1) {
-                nanosleep (&waitTime, NULL);
-                temp = i2cRead (pressHandle1);
-                pressure1 = (float)temp * PRESSURE_SCALE;
-                temp = i2cRead (pressHandle2);
-                pressure2 = (float)temp * PRESSURE_SCALE;
-                printf ("%f, %f\n", pressure1, pressure2);
-        }
-*/
 
 shutdown:
 
