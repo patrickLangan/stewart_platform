@@ -70,7 +70,7 @@ START:
 
                         WAIT r9, 10000
                         ADD r0, r0, 1
-                QBNE LOOP2, r0, 16
+                QBNE LOOP2, r0, 18
 
 		SBCO r4, CONST_PRUDRAM, 0, 4
 		SBCO r5, CONST_PRUDRAM, 4, 4
