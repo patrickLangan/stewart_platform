@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <signal.h>
 #include <setjmp.h>
@@ -120,6 +121,7 @@ int main (int argc, char **argv)
 	double lastTime;
 	struct timeval curTimeval;
 	double curTime = 0.0;
+	double startTime;
 
 	float lastX = 0.0;
 
@@ -151,12 +153,19 @@ int main (int argc, char **argv)
 	float Kret[808];
 
 	FILE *file;
+	char fileName[255];
 
 	float zeroLength1 = 0.0;
 	float zeroLength2 = 0.0;
 
 	int moving = 0;
 	float deadband = 0.00254;
+
+	float inchwormLength = 0.0508;
+
+	float rampSlope = 0.047625;
+	float sinFreq = 0.125;
+	float sinAmp = 0.1905;
 
 	float index;
 	int i, j;
@@ -166,8 +175,8 @@ int main (int argc, char **argv)
 
         signal (SIGINT, signalCatcher);
 
-	if (argc != 2 || (argv[1][0] != 'c' && argv[1][0] != 'r' && argv[1][0] != 'e' && argv[1][0] != 'g')) {
-		fprintf (stderr, "Expects either c, r, e, or g as an argument\n");
+	if (argc != 2) {
+		fprintf (stderr, "Expects one argument\n");
 		goto shutdown;
 	}
 
@@ -211,8 +220,7 @@ int main (int argc, char **argv)
 
 	gettimeofday (&curTimeval, NULL);
 	curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
-
-        //sock = inetClientInit ("192.168.1.102");
+	startTime = curTime;
 
 	//Retract cylinder
 	if (argv[1][0] == 'r') { 
@@ -288,124 +296,160 @@ int main (int argc, char **argv)
 		}
 	}
 
+        sock = inetClientInit ("192.168.1.102");
+
+	sprintf (fileName, "%d_%c.csv", (int)startTime, argv[1][0]);
+	file = fopen (fileName, "w");
+
 	//Gain scheduling controller
-	if (argv[1][0] == 'g') { 
-		while (1) {
-			usleep (5000);
+	while (1) {
+		usleep (5000);
 
-			lastTime = curTime;
-			gettimeofday (&curTimeval, NULL);
-			curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
+		lastTime = curTime;
+		gettimeofday (&curTimeval, NULL);
+		curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 
-			temp = i2cRead (pressHandle1);
-			pressure1 = (float)temp * PRESSURE_SCALE;
-			temp = i2cRead (pressHandle2);
-			pressure2 = (float)temp * PRESSURE_SCALE;
+		temp = i2cRead (pressHandle1);
+		pressure1 = (float)temp * PRESSURE_SCALE;
+		temp = i2cRead (pressHandle2);
+		pressure2 = (float)temp * PRESSURE_SCALE;
 
-			temp = pruDataMem0_int[0];
-			if (temp & (1 << 17))
-				temp |= 0xFFFC0000;
-			length1 = (float)temp * LENGTH_SCALE;
+		temp = pruDataMem0_int[0];
+		if (temp & (1 << 17))
+			temp |= 0xFFFC0000;
+		length1 = (float)temp * LENGTH_SCALE;
 
-			temp = pruDataMem0_int[1];
-			if (temp & (1 << 17))
-				temp |= 0xFFFC0000;
-			length2 = (float)temp * LENGTH_SCALE;
+		temp = pruDataMem0_int[1];
+		if (temp & (1 << 17))
+			temp |= 0xFFFC0000;
+		length2 = (float)temp * LENGTH_SCALE;
 
-			//recv (sock, buffer, 255, 0);
-			//force = atof (buffer);
+		recv (sock, buffer, 255, 0);
+		force = atof (buffer);
 
-			//recv (sock, buffer, 255, 0);
-			//atmPressure = atof (buffer);
+		recv (sock, buffer, 255, 0);
+		atmPressure = atof (buffer);
 
-			lastX = x;
-			x = (length1 - zeroLength1) * 0.0254;
-			v = (x - lastX) / (curTime - lastTime);
-			n1 = pressure2 * 6894.76 * x * A1 / (R * T);
-			n2 = pressure1 * 6894.76 * (L - x) * A2 / (R * T);
+		lastX = x;
+		x = (length1 - zeroLength1) * 0.0254;
+		v = (x - lastX) / (curTime - lastTime);
+		n1 = pressure2 * 6894.76 * x * A1 / (R * T);
+		n2 = pressure1 * 6894.76 * (L - x) * A2 / (R * T);
 
+		switch (argv[1][0]) {
+		case 's':
+			x_0 = 0.381;
+			break;
+		case 'z':
+			x_0 = 0.1905;
+			break;
+		case 'x':
+			x_0 = 0.5715;
+			break;
+		case 'a':
+			x_0 = 0.381 + (curTime - startTime) * rampSlope;
+			if (x_0 > 0.5717)
+				x_0 = 0.5717;
+			break;
+		case 'd':
+			x_0 = 0.381 - (curTime - startTime) * rampSlope;
+			if (x_0 < 0.1905)
+				x_0 = 0.1905;
+			break;
+		case 'p':
+			x_0 = 0.381 + sinAmp * sin ((curTime - startTime) * 2 * M_PI * sinFreq);
+			break;
+		case 'g':
+		default:
 			x_0 = (length2 - zeroLength2) * 0.0254;
 			if (x_0 > L)
 				x_0 = L;
 			if (x_0 < 0)
 				x_0 = 0.0;
-			n1_0 = 1000.0 * Pr * A1 * x_0 / (R * T) - 0.00001;
-			n2_0 = (L - x_0) / (R * T) * (1000.0 * Pr * A1 - Patm * (A1 - A2) - m * g);
-
-			switch (moving) {
-			case 1 :
-				if (x > x_0)
-					moving = 0;
-				break;
-			case 2 :
-				if (x_0 > x)
-					moving = 0;
-				break;
-			case 0 :
-				if (x_0 - x > deadband)
-					moving = 1;
-				else if (x - x_0 > deadband)
-					moving = 2;
-			}
-
-			index = x_0 / L * 99.0;
-			i = (int)index * 8;
-			j = i + 8;
-			if (x > x_0) {
-				K[0][0] = (Kret[j + 0] - Kret[i + 0]) * (index - (float)(i / 8)) + Kret[i + 0];
-				K[0][1] = (Kret[j + 1] - Kret[i + 1]) * (index - (float)(i / 8)) + Kret[i + 1];
-				K[0][2] = (Kret[j + 2] - Kret[i + 2]) * (index - (float)(i / 8)) + Kret[i + 2];
-				K[0][3] = (Kret[j + 3] - Kret[i + 3]) * (index - (float)(i / 8)) + Kret[i + 3];
-				K[1][0] = (Kret[j + 4] - Kret[i + 4]) * (index - (float)(i / 8)) + Kret[i + 4];
-				K[1][1] = (Kret[j + 5] - Kret[i + 5]) * (index - (float)(i / 8)) + Kret[i + 5];
-				K[1][2] = (Kret[j + 6] - Kret[i + 6]) * (index - (float)(i / 8)) + Kret[i + 6];
-				K[1][3] = (Kret[j + 7] - Kret[i + 7]) * (index - (float)(i / 8)) + Kret[i + 7];
-			} else {
-				K[0][0] = (Kext[j + 0] - Kext[i + 0]) * (index - (float)(i / 8)) + Kext[i + 0];
-				K[0][1] = (Kext[j + 1] - Kext[i + 1]) * (index - (float)(i / 8)) + Kext[i + 1];
-				K[0][2] = (Kext[j + 2] - Kext[i + 2]) * (index - (float)(i / 8)) + Kext[i + 2];
-				K[0][3] = (Kext[j + 3] - Kext[i + 3]) * (index - (float)(i / 8)) + Kext[i + 3];
-				K[1][0] = (Kext[j + 4] - Kext[i + 4]) * (index - (float)(i / 8)) + Kext[i + 4];
-				K[1][1] = (Kext[j + 5] - Kext[i + 5]) * (index - (float)(i / 8)) + Kext[i + 5];
-				K[1][2] = (Kext[j + 6] - Kext[i + 6]) * (index - (float)(i / 8)) + Kext[i + 6];
-				K[1][3] = (Kext[j + 7] - Kext[i + 7]) * (index - (float)(i / 8)) + Kext[i + 7];
-			}
-
-			//u1 = (x - x_0) * K[0][0] + (v - v_0) * K[0][1] + (n1 - n1_0) * K[0][2] + (n2 - n2_0) * K[0][3];
-			//u2 = (x - x_0) * K[1][0] + (v - v_0) * K[1][1] + (n1 - n1_0) * K[1][2] + (n2 - n2_0) * K[1][3];
-			u1 = (n1 - n1_0) * -K[0][2] + (n2 - n2_0) * -K[0][3];
-			u2 = (n1 - n1_0) * -K[1][2] + (n2 - n2_0) * -K[1][3];
-
-			if (!moving) {
-				u1 = 0.0;
-				u2 = 0.0;
-			}
-
-			printf ("%d, ", moving);
-			printf ("%f, %f, %f, %f, %f, %f, %f, %f\n", curTime, x_0, x, v, n1, n2, u1, u2);
-
-			if (u1 < 0.0) {
-				u1 = 0.0;
-			}
-			if (u1 > 100.0) {
-				u1 = 100.0;
-			}
-
-			if (u2 < 0.0) {
-				u2 = 0.0;
-			}
-			if (u2 > 100.0) {
-				u2 = 100.0;
-			}
-
-			if (x > x_0) {
-				u1 = u1 * -1.0;
-				u2 = u2 * -1.0;
-			}
-
-			pruDataMem1_int[1] = (int)(u1 * 5.0);
-			pruDataMem1_int[0] = (int)(u2 * 5.0);
 		}
+
+		switch (moving) {
+		case 1 :
+			if (x > x_0)
+				moving = 0;
+			break;
+		case 2 :
+			if (x_0 > x)
+				moving = 0;
+			break;
+		case 0 :
+		default:
+			if (x_0 - x > deadband)
+				moving = 1;
+			else if (x - x_0 > deadband)
+				moving = 2;
+		}
+
+		if (x > x_0 && x - x_0 > inchwormLength)
+			x_0 = x - inchwormLength;
+		else if (x_0 > x && x_0 - x > inchwormLength)
+			x_0 = x + inchwormLength;
+
+		n1_0 = 1000.0 * Pr * A1 * x_0 / (R * T) - 0.00001;
+		n2_0 = (L - x_0) / (R * T) * (1000.0 * Pr * A1 - Patm * (A1 - A2) - m * g);
+
+		index = x_0 / L * 99.0;
+		i = (int)index * 8;
+		j = i + 8;
+		if (x > x_0) {
+			K[0][0] = (Kret[j + 0] - Kret[i + 0]) * (index - (float)(i / 8)) + Kret[i + 0];
+			K[0][1] = (Kret[j + 1] - Kret[i + 1]) * (index - (float)(i / 8)) + Kret[i + 1];
+			K[0][2] = (Kret[j + 2] - Kret[i + 2]) * (index - (float)(i / 8)) + Kret[i + 2];
+			K[0][3] = (Kret[j + 3] - Kret[i + 3]) * (index - (float)(i / 8)) + Kret[i + 3];
+			K[1][0] = (Kret[j + 4] - Kret[i + 4]) * (index - (float)(i / 8)) + Kret[i + 4];
+			K[1][1] = (Kret[j + 5] - Kret[i + 5]) * (index - (float)(i / 8)) + Kret[i + 5];
+			K[1][2] = (Kret[j + 6] - Kret[i + 6]) * (index - (float)(i / 8)) + Kret[i + 6];
+			K[1][3] = (Kret[j + 7] - Kret[i + 7]) * (index - (float)(i / 8)) + Kret[i + 7];
+		} else {
+			K[0][0] = (Kext[j + 0] - Kext[i + 0]) * (index - (float)(i / 8)) + Kext[i + 0];
+			K[0][1] = (Kext[j + 1] - Kext[i + 1]) * (index - (float)(i / 8)) + Kext[i + 1];
+			K[0][2] = (Kext[j + 2] - Kext[i + 2]) * (index - (float)(i / 8)) + Kext[i + 2];
+			K[0][3] = (Kext[j + 3] - Kext[i + 3]) * (index - (float)(i / 8)) + Kext[i + 3];
+			K[1][0] = (Kext[j + 4] - Kext[i + 4]) * (index - (float)(i / 8)) + Kext[i + 4];
+			K[1][1] = (Kext[j + 5] - Kext[i + 5]) * (index - (float)(i / 8)) + Kext[i + 5];
+			K[1][2] = (Kext[j + 6] - Kext[i + 6]) * (index - (float)(i / 8)) + Kext[i + 6];
+			K[1][3] = (Kext[j + 7] - Kext[i + 7]) * (index - (float)(i / 8)) + Kext[i + 7];
+		}
+
+		u1 = (x - x_0) * -K[0][0] + (v - v_0) * -K[0][1] + (n1 - n1_0) * -K[0][2] + (n2 - n2_0) * -K[0][3];
+		u2 = (x - x_0) * -K[1][0] + (v - v_0) * -K[1][1] + (n1 - n1_0) * -K[1][2] + (n2 - n2_0) * -K[1][3];
+
+		if (!moving) {
+			u1 = 0.0;
+			u2 = 0.0;
+		}
+
+		printf ("%d, ", moving);
+		printf ("%f, %f, %f, %f, %f, %f, %f, %f\n", curTime, x_0, x, v, n1, n2, u1, u2);
+
+		fprintf (file, "%d, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", moving, curTime - startTime, x_0, x, v, n1, n2, u1, u2, force);
+
+		if (u1 < 0.0) {
+			u1 = 0.0;
+		}
+		if (u1 > 100.0) {
+			u1 = 100.0;
+		}
+
+		if (u2 < 0.0) {
+			u2 = 0.0;
+		}
+		if (u2 > 100.0) {
+			u2 = 100.0;
+		}
+
+		if (x > x_0) {
+			u1 = u1 * -1.0;
+			u2 = u2 * -1.0;
+		}
+
+		pruDataMem1_int[1] = (int)(u1 * 5.0);
+		pruDataMem1_int[0] = (int)(u2 * 5.0);
 	}
 
 shutdown:
@@ -415,6 +459,8 @@ shutdown:
 	sleep (10);
 
         pruTerminate ();
+
+	fclose (file);
 
         return 0;
 }
