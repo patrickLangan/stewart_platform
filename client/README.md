@@ -15,11 +15,11 @@
 		Sensor1Data:	P8_15
 		Sensor2Data:	P8_16
 
-	Length sensor - PRU1
-		STEP1:			P8_45
-		DIR1:			P8_46
-		STEP2:			P8_43
-		DIR2:			P8_44
+	Stepper valves - PRU1
+		STEP1:			P8_46
+		STEP2:			P8_45
+		DIR1:			P8_44
+		DIR2:			P8_43
 		CtrlExtend:		P8_41
 		CtrlRetract:	P8_42
 
