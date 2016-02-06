@@ -1,8 +1,12 @@
-#Single Cylinder Pneumatic Tests
+#Multi Cylinder Control Program
 ==============
 
 ##TODO
-- Data transfer between bbb's
+- Add static IP code
+- Interface between bbb's
+- Add length sensors
+- Motion file reader
+- New controller
 - Error checking
 - General cleanup
 
