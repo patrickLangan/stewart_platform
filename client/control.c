@@ -8,6 +8,11 @@
 #include <prussdrv.h>
 #include <pruss_intc_mapping.h>
 
+#include <stdint.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <linux/spi/spidev.h>
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -18,6 +23,9 @@ static void *pruDataMem0;
 static void *pruDataMem1;
 static unsigned int *pruDataMem0_int;
 static unsigned int *pruDataMem1_int;
+
+static int spiBits = 8;
+static int spiSpeed = 20000;
 
 static jmp_buf buf;
 
@@ -78,6 +86,32 @@ int i2cRead (int handle)
         return (int)buffer[0] << 8 | (int)buffer[1];
 }
 
+void spiInit (char *file, int *fd)
+{
+        *fd = open (file, O_RDWR);
+        ioctl (*fd, SPI_IOC_WR_BITS_PER_WORD, &spiBits);
+        ioctl (*fd, SPI_IOC_RD_BITS_PER_WORD, &spiBits);
+        ioctl (*fd, SPI_IOC_WR_MAX_SPEED_HZ, &spiSpeed);
+        ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
+}
+
+float spiRead16 (int fd)
+{
+        uint8_t tx[2] = {0, 0};
+        uint8_t rx[2];
+        struct spi_ioc_transfer tr;
+
+        tr.tx_buf = (unsigned long)tx;
+        tr.rx_buf = (unsigned long)rx;
+        tr.len = 2;
+        tr.speed_hz = spiSpeed;
+        tr.bits_per_word = spiBits;
+
+        ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
+
+        return (rx[0] << 8 | rx[1]) >> 1;
+}
+
 int inetClientInit (const char *address)
 {
         int sock;
@@ -104,6 +138,8 @@ int main (int argc, char **argv)
 {
         int pressHandle1;
         int pressHandle2;
+
+	int lengthHandle;
 
         int sock;
         char buffer[255];
@@ -217,6 +253,8 @@ int main (int argc, char **argv)
 
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
+
+	spiInit ("/dev/spidev1.0", &lengthHandle);
 
 	gettimeofday (&curTimeval, NULL);
 	curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
@@ -453,6 +491,10 @@ int main (int argc, char **argv)
 	}
 
 shutdown:
+	i2c_close (pressHandle1);
+	i2c_close (pressHandle2);
+	close (lengthHandle);
+
 	pruDataMem1_int[0] = 0;
 	pruDataMem1_int[1] = 0;
 
