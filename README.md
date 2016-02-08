@@ -28,3 +28,8 @@ uenvcmd=run mmcreset;
 - umount /mnt
 - poweroff
 
+###Install NTP and set static IP
+apt-get update
+apt-get install ntp
+run ip_setup.sh located in multiCylinder/staticIP with the desired static IP as an argument
+reboot to apply new IP address
