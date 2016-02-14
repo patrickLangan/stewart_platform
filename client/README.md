@@ -12,8 +12,8 @@
 
 	Length sensor - PRU0
 		Clock:			P8_11
-		Slave Select:		P8_12
-		SensorData:	P8_15
+		Slave Select:	P8_12
+		SensorData:		P8_15
 
 	Stepper valves - PRU1
 		STEP1:			P8_46
