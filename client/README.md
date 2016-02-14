@@ -12,8 +12,8 @@
 
 	Length sensor - PRU0
 		Clock:			P8_11
-		Sensor1Data:	P8_15
-		Sensor2Data:	P8_16
+		Slave Select:		P8_12
+		SensorData:	P8_15
 
 	Stepper valves - PRU1
 		STEP1:			P8_46
@@ -24,6 +24,7 @@
 		CtrlRetract:	P8_42
 
 ##TODO
+- Correct ADC interface timing
 - Error checking
 - General cleanup
 
