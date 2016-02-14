@@ -136,96 +136,34 @@ int inetClientInit (const char *address)
 
 int main (int argc, char **argv)
 {
-        int pressHandle1;
-        int pressHandle2;
-
-	int lengthHandle;
-
         int sock;
         char buffer[255];
 
         int temp;
-        float force;
-        float length1;
-        float length2;
-        float atmPressure;
+        float length;
         float pressure1;
         float pressure2;
 
-        struct timespec waitTime = {0, 100000000};
+	int lengthHandle;
+        int pressHandle1;
+        int pressHandle2;
 
 	double lastTime;
 	struct timeval curTimeval;
 	double curTime = 0.0;
 	double startTime;
 
-	float lastX = 0.0;
-
-	float x;
-	float v;
-	float n1;
-	float n2;
-
-	float x_0;
-	float v_0;
-	float n1_0;
-	float n2_0;
-
-	float u1;
-	float u2;
-
-	float A1 = 0.0018288973;
-	float A2 = 0.0020268299;
-	float R = 8.314;
-	float T = 296.15;
-	float L = 0.762;
-	float Pr = 577.4825;
-	float Patm = 101325.0;
-	float m = 15.8757;
-	float g = 9.81;
-
-	float K[2][4];
-	float Kext[808];
-	float Kret[808];
-
-	FILE *file;
-	char fileName[255];
-
-	float zeroLength1 = 0.0;
-	float zeroLength2 = 0.0;
-
-	int moving = 0;
-	float deadband = 0.00254;
-
-	float inchwormLength = 0.0508;
-
-	float rampSlope = 0.047625;
-	float sinFreq = 0.125;
-	float sinAmp = 0.1905;
-
-	float index;
-	int i, j;
-
         if (setjmp (buf))
                 goto shutdown;
 
         signal (SIGINT, signalCatcher);
 
-	if (argc != 2) {
-		fprintf (stderr, "Expects one argument\n");
+	if (argc != 1) {
+		fprintf (stderr, "Too many arguments\n");
 		goto shutdown;
 	}
 
         pruInit ();
-
-	if (argv[1][0] == 'c') { 
-		if (prussdrv_exec_program (1, "./coldStart.bin")) {
-			fprintf (stderr, "prussdrv_exec_program(1, './coldStart.bin') failed\n");
-			return 1;
-		}
-		sleep (10);
-		goto shutdown;
-	}
 
         prussdrv_map_prumem (PRUSS0_PRU0_DATARAM, &pruDataMem0);
         pruDataMem0_int = (unsigned int*) pruDataMem0;
@@ -243,106 +181,32 @@ int main (int argc, char **argv)
                 return 1;
         }
 
-	file = fopen ("Kext.bin", "rb");
-	fread (Kext, sizeof (*Kext), 808, file);
-	fclose (file);
-
-	file = fopen ("Kret.bin", "rb");
-	fread (Kret, sizeof (*Kret), 808, file);
-	fclose (file);
-
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
-
-	spiInit ("/dev/spidev1.0", &lengthHandle);
 
 	gettimeofday (&curTimeval, NULL);
 	curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 	startTime = curTime;
 
-	//Retract cylinder
-	if (argv[1][0] == 'r') { 
-		while (1) {
-			lastTime = curTime;
-			gettimeofday (&curTimeval, NULL);
-			curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
-
-			pruDataMem1_int[0] = -200;
-			pruDataMem1_int[1] = -200;
-
-			temp = i2cRead (pressHandle1);
-			pressure1 = (float)temp * PRESSURE_SCALE;
-			temp = i2cRead (pressHandle2);
-			pressure2 = (float)temp * PRESSURE_SCALE;
-
-			temp = pruDataMem0_int[0];
-			if (temp & (1 << 17))
-				temp |= 0xFFFC0000;
-			length1 = (float)temp * LENGTH_SCALE;
-
-			temp = pruDataMem0_int[1];
-			if (temp & (1 << 17))
-				temp |= 0xFFFC0000;
-			length2 = (float)temp * LENGTH_SCALE;
-
-			lastX = x;
-			x = (length1 - 0.522283) * 0.0254;
-			v = (x - lastX) / (curTime - lastTime);
-			n1 = pressure2 * 6894.76 * x * A1 / (R * T);
-			n2 = pressure1 * 6894.76 * (L - x) * A2 / (R * T);
-
-			printf ("%f, %f, %f, %f\n", length1, length2, pressure1, pressure2);
-
-			usleep (5000);
-		}
-	}
-
-	//Extend cylinder
-	if (argv[1][0] == 'e') { 
-		while (1) {
-			lastTime = curTime;
-			gettimeofday (&curTimeval, NULL);
-			curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
-
-			pruDataMem1_int[0] = 300;
-			pruDataMem1_int[1] = 300;
-
-			temp = i2cRead (pressHandle1);
-			pressure1 = (float)temp * PRESSURE_SCALE;
-			temp = i2cRead (pressHandle2);
-			pressure2 = (float)temp * PRESSURE_SCALE;
-
-			temp = pruDataMem0_int[0];
-			if (temp & (1 << 17))
-				temp |= 0xFFFC0000;
-			length1 = (float)temp * LENGTH_SCALE;
-
-			temp = pruDataMem0_int[1];
-			if (temp & (1 << 17))
-				temp |= 0xFFFC0000;
-			length2 = (float)temp * LENGTH_SCALE;
-
-			lastX = x;
-			x = (length1 - 0.522283) * 0.0254;
-			v = (x - lastX) / (curTime - lastTime);
-			n1 = pressure2 * 6894.76 * x * A1 / (R * T);
-			n2 = pressure1 * 6894.76 * (L - x) * A2 / (R * T);
-
-			printf ("%f, %f, %f, %f\n", length1, length2, pressure1, pressure2);
-
-			usleep (5000);
-		}
-	}
-
-        sock = inetClientInit ("192.168.1.102");
-
-	sprintf (fileName, "%d_%c.csv", (int)startTime, argv[1][0]);
-	file = fopen (fileName, "w");
-
-	//Gain scheduling controller
+	//Test length sensor
 	while (1) {
-		usleep (5000);
+		lastTime = curTime;
+		gettimeofday (&curTimeval, NULL);
+		curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 
+		temp = pruDataMem0_int[0];
+		if (temp & (1 << 17))
+			temp |= 0xFFFC0000;
+		length = (float)temp * LENGTH_SCALE;
+
+		printf ("%f\n", length);
+
+		usleep (5000);
+	}
+
+	//Test pressure sensors
+/*
+	while (1) {
 		lastTime = curTime;
 		gettimeofday (&curTimeval, NULL);
 		curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
@@ -352,157 +216,17 @@ int main (int argc, char **argv)
 		temp = i2cRead (pressHandle2);
 		pressure2 = (float)temp * PRESSURE_SCALE;
 
-		temp = pruDataMem0_int[0];
-		if (temp & (1 << 17))
-			temp |= 0xFFFC0000;
-		length1 = (float)temp * LENGTH_SCALE;
+		printf ("%f, %f\n", pressure1, pressure2);
 
-		temp = pruDataMem0_int[1];
-		if (temp & (1 << 17))
-			temp |= 0xFFFC0000;
-		length2 = (float)temp * LENGTH_SCALE;
-
-		recv (sock, buffer, 255, 0);
-		force = atof (buffer);
-
-		recv (sock, buffer, 255, 0);
-		atmPressure = atof (buffer);
-
-		lastX = x;
-		x = (length1 - zeroLength1) * 0.0254;
-		v = (x - lastX) / (curTime - lastTime);
-		n1 = pressure2 * 6894.76 * x * A1 / (R * T);
-		n2 = pressure1 * 6894.76 * (L - x) * A2 / (R * T);
-
-		switch (argv[1][0]) {
-		case 's':
-			x_0 = 0.381;
-			break;
-		case 'z':
-			x_0 = 0.1905;
-			break;
-		case 'x':
-			x_0 = 0.5715;
-			break;
-		case 'a':
-			x_0 = 0.381 + (curTime - startTime) * rampSlope;
-			if (x_0 > 0.5717)
-				x_0 = 0.5717;
-			break;
-		case 'd':
-			x_0 = 0.381 - (curTime - startTime) * rampSlope;
-			if (x_0 < 0.1905)
-				x_0 = 0.1905;
-			break;
-		case 'p':
-			x_0 = 0.381 + sinAmp * sin ((curTime - startTime) * 2 * M_PI * sinFreq);
-			break;
-		case 'g':
-		default:
-			x_0 = (length2 - zeroLength2) * 0.0254;
-			if (x_0 > L)
-				x_0 = L;
-			if (x_0 < 0)
-				x_0 = 0.0;
-		}
-
-		switch (moving) {
-		case 1 :
-			if (x > x_0)
-				moving = 0;
-			break;
-		case 2 :
-			if (x_0 > x)
-				moving = 0;
-			break;
-		case 0 :
-		default:
-			if (x_0 - x > deadband)
-				moving = 1;
-			else if (x - x_0 > deadband)
-				moving = 2;
-		}
-
-		if (x > x_0 && x - x_0 > inchwormLength)
-			x_0 = x - inchwormLength;
-		else if (x_0 > x && x_0 - x > inchwormLength)
-			x_0 = x + inchwormLength;
-
-		n1_0 = 1000.0 * Pr * A1 * x_0 / (R * T) - 0.00001;
-		n2_0 = (L - x_0) / (R * T) * (1000.0 * Pr * A1 - Patm * (A1 - A2) - m * g);
-
-		index = x_0 / L * 99.0;
-		i = (int)index * 8;
-		j = i + 8;
-		if (x > x_0) {
-			K[0][0] = (Kret[j + 0] - Kret[i + 0]) * (index - (float)(i / 8)) + Kret[i + 0];
-			K[0][1] = (Kret[j + 1] - Kret[i + 1]) * (index - (float)(i / 8)) + Kret[i + 1];
-			K[0][2] = (Kret[j + 2] - Kret[i + 2]) * (index - (float)(i / 8)) + Kret[i + 2];
-			K[0][3] = (Kret[j + 3] - Kret[i + 3]) * (index - (float)(i / 8)) + Kret[i + 3];
-			K[1][0] = (Kret[j + 4] - Kret[i + 4]) * (index - (float)(i / 8)) + Kret[i + 4];
-			K[1][1] = (Kret[j + 5] - Kret[i + 5]) * (index - (float)(i / 8)) + Kret[i + 5];
-			K[1][2] = (Kret[j + 6] - Kret[i + 6]) * (index - (float)(i / 8)) + Kret[i + 6];
-			K[1][3] = (Kret[j + 7] - Kret[i + 7]) * (index - (float)(i / 8)) + Kret[i + 7];
-		} else {
-			K[0][0] = (Kext[j + 0] - Kext[i + 0]) * (index - (float)(i / 8)) + Kext[i + 0];
-			K[0][1] = (Kext[j + 1] - Kext[i + 1]) * (index - (float)(i / 8)) + Kext[i + 1];
-			K[0][2] = (Kext[j + 2] - Kext[i + 2]) * (index - (float)(i / 8)) + Kext[i + 2];
-			K[0][3] = (Kext[j + 3] - Kext[i + 3]) * (index - (float)(i / 8)) + Kext[i + 3];
-			K[1][0] = (Kext[j + 4] - Kext[i + 4]) * (index - (float)(i / 8)) + Kext[i + 4];
-			K[1][1] = (Kext[j + 5] - Kext[i + 5]) * (index - (float)(i / 8)) + Kext[i + 5];
-			K[1][2] = (Kext[j + 6] - Kext[i + 6]) * (index - (float)(i / 8)) + Kext[i + 6];
-			K[1][3] = (Kext[j + 7] - Kext[i + 7]) * (index - (float)(i / 8)) + Kext[i + 7];
-		}
-
-		u1 = (x - x_0) * -K[0][0] + (v - v_0) * -K[0][1] + (n1 - n1_0) * -K[0][2] + (n2 - n2_0) * -K[0][3];
-		u2 = (x - x_0) * -K[1][0] + (v - v_0) * -K[1][1] + (n1 - n1_0) * -K[1][2] + (n2 - n2_0) * -K[1][3];
-
-		if (!moving) {
-			u1 = 0.0;
-			u2 = 0.0;
-		}
-
-		printf ("%d, ", moving);
-		printf ("%f, %f, %f, %f, %f, %f, %f, %f\n", curTime, x_0, x, v, n1, n2, u1, u2);
-
-		fprintf (file, "%d, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", moving, curTime - startTime, x_0, x, v, n1, n2, u1, u2, force);
-
-		if (u1 < 0.0) {
-			u1 = 0.0;
-		}
-		if (u1 > 100.0) {
-			u1 = 100.0;
-		}
-
-		if (u2 < 0.0) {
-			u2 = 0.0;
-		}
-		if (u2 > 100.0) {
-			u2 = 100.0;
-		}
-
-		if (x > x_0) {
-			u1 = u1 * -1.0;
-			u2 = u2 * -1.0;
-		}
-
-		pruDataMem1_int[1] = (int)(u1 * 5.0);
-		pruDataMem1_int[0] = (int)(u2 * 5.0);
+		usleep (5000);
 	}
+*/
 
 shutdown:
 	i2c_close (pressHandle1);
 	i2c_close (pressHandle2);
-	close (lengthHandle);
-
-	pruDataMem1_int[0] = 0;
-	pruDataMem1_int[1] = 0;
-
-	sleep (10);
 
         pruTerminate ();
-
-	fclose (file);
 
         return 0;
 }
