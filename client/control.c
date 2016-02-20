@@ -188,7 +188,18 @@ int main (int argc, char **argv)
 	curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 	startTime = curTime;
 
+	//Test stepper motors / directional control valves
+	while (1) {
+		pruDataMem1_int[0] = -500;
+		pruDataMem1_int[1] = -500;
+		sleep (10);
+		pruDataMem1_int[0] = 0;
+		pruDataMem1_int[1] = 0;
+		sleep (10);
+	}
+
 	//Test length sensor
+/*
 	while (1) {
 		lastTime = curTime;
 		gettimeofday (&curTimeval, NULL);
@@ -203,6 +214,7 @@ int main (int argc, char **argv)
 
 		usleep (5000);
 	}
+*/
 
 	//Test pressure sensors
 /*

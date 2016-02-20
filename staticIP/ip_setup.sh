@@ -21,10 +21,12 @@ ln -s `pwd`/static_ip.sh /usr/local/bin/static_ip
 ln -s `pwd`/static_ip.service /etc/systemd/system/static_ip.service
 
 disable_service apache2
-#disable_service avahi-daemon
-#disable_service udhcpd
+disable_service avahi-daemon
+disable_service udhcpd
 disable_service wicd
 
 systemctl enable `pwd`/static_ip.service
+systemctl disable avahi-daemon.socket
+systemctl disable avahi-daemon.service
 
 exit 0
