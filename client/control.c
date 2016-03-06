@@ -158,11 +158,6 @@ int main (int argc, char **argv)
 
         signal (SIGINT, signalCatcher);
 
-	if (argc != 1) {
-		fprintf (stderr, "Too many arguments\n");
-		goto shutdown;
-	}
-
         pruInit ();
 
         prussdrv_map_prumem (PRUSS0_PRU0_DATARAM, &pruDataMem0);
@@ -170,6 +165,15 @@ int main (int argc, char **argv)
 
         prussdrv_map_prumem (PRUSS0_PRU1_DATARAM, &pruDataMem1);
         pruDataMem1_int = (unsigned int*) pruDataMem1;
+
+	if (argc == 2 && argv[1][0] == 'c') {
+		if (prussdrv_exec_program (0, "./length.bin")) {
+			fprintf (stderr, "prussdrv_exec_program(0, './length.bin') failed\n");
+			return 1;
+		}
+		sleep (10);
+		return 0;
+	}
 
         if (prussdrv_exec_program (0, "./length.bin")) {
                 fprintf (stderr, "prussdrv_exec_program(0, './length.bin') failed\n");
@@ -189,6 +193,7 @@ int main (int argc, char **argv)
 	startTime = curTime;
 
 	//Test stepper motors / directional control valves
+/*
 	while (1) {
 		pruDataMem1_int[0] = -500;
 		pruDataMem1_int[1] = -500;
@@ -197,9 +202,9 @@ int main (int argc, char **argv)
 		pruDataMem1_int[1] = 0;
 		sleep (10);
 	}
+*/
 
 	//Test length sensor
-/*
 	while (1) {
 		lastTime = curTime;
 		gettimeofday (&curTimeval, NULL);
@@ -214,7 +219,6 @@ int main (int argc, char **argv)
 
 		usleep (5000);
 	}
-*/
 
 	//Test pressure sensors
 /*
