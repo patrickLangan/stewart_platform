@@ -167,12 +167,12 @@ int main (int argc, char **argv)
         pruDataMem1_int = (unsigned int*) pruDataMem1;
 
 	if (argc == 2 && argv[1][0] == 'c') {
-		if (prussdrv_exec_program (0, "./length.bin")) {
-			fprintf (stderr, "prussdrv_exec_program(0, './length.bin') failed\n");
+		if (prussdrv_exec_program (1, "./coldStart.bin")) {
+			fprintf (stderr, "prussdrv_exec_program(0, './coldStart.bin') failed\n");
 			return 1;
 		}
 		sleep (10);
-		return 0;
+		goto shutdown;
 	}
 
         if (prussdrv_exec_program (0, "./length.bin")) {
@@ -193,50 +193,62 @@ int main (int argc, char **argv)
 	startTime = curTime;
 
 	//Test stepper motors / directional control valves
-/*
-	while (1) {
-		pruDataMem1_int[0] = -500;
-		pruDataMem1_int[1] = -500;
-		sleep (10);
+	if (argc == 2 && argv[1][0] == 'e') {
+		pruDataMem1_int[0] = 400;
+		pruDataMem1_int[1] = 400;
+		sleep (4);
 		pruDataMem1_int[0] = 0;
 		pruDataMem1_int[1] = 0;
-		sleep (10);
+		sleep (4);
+		goto shutdown;
 	}
-*/
+	if (argc == 2 && argv[1][0] == 'r') {
+		pruDataMem1_int[0] = -400;
+		pruDataMem1_int[1] = -400;
+		sleep (4);
+		pruDataMem1_int[0] = 0;
+		pruDataMem1_int[1] = 0;
+		sleep (4);
+		goto shutdown;
+	}
 
 	//Test length sensor
-	while (1) {
-		lastTime = curTime;
-		gettimeofday (&curTimeval, NULL);
-		curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
+	if (argc == 2 && argv[1][0] == 'l') {
+		while (1) {
+			lastTime = curTime;
+			gettimeofday (&curTimeval, NULL);
+			curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 
-		temp = pruDataMem0_int[0];
-		if (temp & (1 << 17))
-			temp |= 0xFFFC0000;
-		length = (float)temp * LENGTH_SCALE;
+			temp = pruDataMem0_int[0];
+			if (temp & (1 << 17))
+				temp |= 0xFFFC0000;
+			length = (float)temp * LENGTH_SCALE;
 
-		printf ("%f\n", length);
+			printf ("%f\n", length);
 
-		usleep (5000);
+			usleep (5000);
+		}
+		goto shutdown;
 	}
 
 	//Test pressure sensors
-/*
-	while (1) {
-		lastTime = curTime;
-		gettimeofday (&curTimeval, NULL);
-		curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
+	if (argc == 2 && argv[1][0] == 'p') {
+		while (1) {
+			lastTime = curTime;
+			gettimeofday (&curTimeval, NULL);
+			curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 
-		temp = i2cRead (pressHandle1);
-		pressure1 = (float)temp * PRESSURE_SCALE;
-		temp = i2cRead (pressHandle2);
-		pressure2 = (float)temp * PRESSURE_SCALE;
+			temp = i2cRead (pressHandle1);
+			pressure1 = (float)temp * PRESSURE_SCALE;
+			temp = i2cRead (pressHandle2);
+			pressure2 = (float)temp * PRESSURE_SCALE;
 
-		printf ("%f, %f\n", pressure1, pressure2);
+			printf ("%f, %f\n", pressure1, pressure2);
 
-		usleep (5000);
+			usleep (5000);
+		}
+		goto shutdown;
 	}
-*/
 
 shutdown:
 	i2c_close (pressHandle1);
