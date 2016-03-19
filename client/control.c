@@ -8,11 +8,6 @@
 #include <prussdrv.h>
 #include <pruss_intc_mapping.h>
 
-#include <stdint.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <linux/spi/spidev.h>
-
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -22,9 +17,6 @@ static void *pruDataMem0;
 static void *pruDataMem1;
 static unsigned int *pruDataMem0_int;
 static unsigned int *pruDataMem1_int;
-
-static int spiBits = 8;
-static int spiSpeed = 20000;
 
 static jmp_buf buf;
 
@@ -83,32 +75,6 @@ int i2cRead (int handle)
         i2c_read (handle, buffer, 2);
 
         return (int)buffer[0] << 8 | (int)buffer[1];
-}
-
-void spiInit (char *file, int *fd)
-{
-        *fd = open (file, O_RDWR);
-        ioctl (*fd, SPI_IOC_WR_BITS_PER_WORD, &spiBits);
-        ioctl (*fd, SPI_IOC_RD_BITS_PER_WORD, &spiBits);
-        ioctl (*fd, SPI_IOC_WR_MAX_SPEED_HZ, &spiSpeed);
-        ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
-}
-
-float spiRead16 (int fd)
-{
-        uint8_t tx[2] = {0, 0};
-        uint8_t rx[2];
-        struct spi_ioc_transfer tr;
-
-        tr.tx_buf = (unsigned long)tx;
-        tr.rx_buf = (unsigned long)rx;
-        tr.len = 2;
-        tr.speed_hz = spiSpeed;
-        tr.bits_per_word = spiBits;
-
-        ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
-
-        return (rx[0] << 8 | rx[1]) >> 1;
 }
 
 int inetClientInit (const char *address)
