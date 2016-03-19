@@ -17,7 +17,6 @@
 #include <arpa/inet.h>
 
 #define PRESSURE_SCALE 0.0091558323
-#define LENGTH_SCALE 3.906379093e-4
 
 static void *pruDataMem0;
 static void *pruDataMem1;
@@ -220,11 +219,7 @@ int main (int argc, char **argv)
 			curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 
 			temp = pruDataMem0_int[0];
-			if (temp & (1 << 17))
-				temp |= 0xFFFC0000;
-			length = (float)temp * LENGTH_SCALE;
-
-			printf ("%f\n", length);
+			printf ("%d\n", temp);
 
 			usleep (5000);
 		}
