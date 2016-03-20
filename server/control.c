@@ -21,129 +21,102 @@ static jmp_buf buf;
 
 void signalCatcher (int null)
 {
-	longjmp (buf, 1);
+        longjmp (buf, 1);
 }
 
 void spiInit (char *file, int *fd)
 {
-	*fd = open (file, O_RDWR);
-	ioctl (*fd, SPI_IOC_WR_BITS_PER_WORD, &spiBits);
-	ioctl (*fd, SPI_IOC_RD_BITS_PER_WORD, &spiBits);
-	ioctl (*fd, SPI_IOC_WR_MAX_SPEED_HZ, &spiSpeed);
-	ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
+        *fd = open (file, O_RDWR);
+        ioctl (*fd, SPI_IOC_WR_BITS_PER_WORD, &spiBits);
+        ioctl (*fd, SPI_IOC_RD_BITS_PER_WORD, &spiBits);
+        ioctl (*fd, SPI_IOC_WR_MAX_SPEED_HZ, &spiSpeed);
+        ioctl (*fd, SPI_IOC_RD_MAX_SPEED_HZ, &spiSpeed);
 }
 
 float spiRead16 (int fd)
 {
-	uint8_t tx[2] = {0, 0};
-	uint8_t rx[2];
-	struct spi_ioc_transfer tr;
+        uint8_t tx[2] = {0, 0};
+        uint8_t rx[2];
+        struct spi_ioc_transfer tr;
 
-	tr.tx_buf = (unsigned long)tx;
-	tr.rx_buf = (unsigned long)rx;
-	tr.len = 2;
-	tr.speed_hz = spiSpeed;
-	tr.bits_per_word = spiBits;
+        tr.tx_buf = (unsigned long)tx;
+        tr.rx_buf = (unsigned long)rx;
+        tr.len = 2;
+        tr.speed_hz = spiSpeed;
+        tr.bits_per_word = spiBits;
 
-	ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
+        ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
 
         return rx[1] << 8 | rx[2];
 }
 
 float spiRead24 (int fd)
 {
-	uint8_t tx[3] = {0, 0, 0};
-	uint8_t rx[3];
-	struct spi_ioc_transfer tr;
+        uint8_t tx[3] = {0, 0, 0};
+        uint8_t rx[3];
+        struct spi_ioc_transfer tr;
 
-	tr.tx_buf = (unsigned long)tx;
-	tr.rx_buf = (unsigned long)rx;
-	tr.len = 3;
-	tr.speed_hz = spiSpeed;
-	tr.bits_per_word = spiBits;
+        tr.tx_buf = (unsigned long)tx;
+        tr.rx_buf = (unsigned long)rx;
+        tr.len = 3;
+        tr.speed_hz = spiSpeed;
+        tr.bits_per_word = spiBits;
 
-	ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
+        ioctl (fd, SPI_IOC_MESSAGE (1), &tr);
 
         return rx[0] << 16 | rx[1] << 8 | rx[2];
 }
 
-int inetServerInit (void)
+int udpInit (const unsigned int port)
 {
-	int sock;
-	int returnSock;
-	struct sockaddr_in server;
+        struct sockaddr_in localSock = {
+                .sin_family = AF_INET
+        };
+        int sock;
 
-	if ((sock = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-		fprintf (stderr, "socket(AF_INET, SOCK_STREAM, 0) failed\n");
-		return -1;
-	}
+        if ((sock = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+                fprintf (stderr, "socket() failed\n");
+                return -1;
+        }
 
-	server.sin_addr.s_addr = INADDR_ANY;
-	server.sin_family = AF_INET;
-	server.sin_port = htons (8888);
+        localSock.sin_port = htons (port);
+        localSock.sin_addr.s_addr = htonl (INADDR_ANY);
 
-	if (bind (sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
-		fprintf (stderr, "bind() failed\n");
-		return -1;
-	}
+        if (bind (sock, (struct sockaddr *)&localSock, sizeof(localSock)) < 0) {
+                fprintf (stderr, "bind() failed\n");
+                return -1;
+        }
 
-	listen (sock, 3);
-
-	if ((returnSock = accept (sock, NULL, NULL)) < 0) {
-		fprintf (stderr, "accept() failed\n");
-		return -1;
-	}
-
-	return returnSock;
+        return sock;
 }
 
 int main (int argc, char **argv)
 {
-	int spiFile1;
-	int spiFile2;
+        struct sockaddr_in client = {
+                .sin_family = AF_INET
+        };
+        char buffer[255] = {'\0'};
+        int sock;
 
-	int sock;
-	char buffer[255];
+        if (setjmp (buf))
+                goto shutdown;
 
-	int temp;
-	float pressure;
-	float force;
+        signal (SIGINT, signalCatcher);
 
-	struct timespec waitTime = {0, 100000000};
+        sock = udpInit (1680);
 
-	if (setjmp (buf))
-		goto shutdown;
+        client.sin_port = htons (1681);
+        inet_aton ("192.168.0.11", &client.sin_addr);
 
-	signal (SIGINT, signalCatcher);
-
-	spiInit ("/dev/spidev1.0", &spiFile1);
-	spiInit ("/dev/spidev2.0", &spiFile2);
-
-	sock = inetServerInit ();
-
-	while (1) {
-		nanosleep (&waitTime, NULL);
-
-		temp = spiRead24 (spiFile2);
-		if (temp & (1 << 23))
-			temp |= 0xFF000000;
-		force = (float)temp * FORCE_SCALE;
-		sprintf (buffer, "%f", force);
-		send (sock, buffer, 255, 0);
-
-		temp = spiRead16 (spiFile1);
-		if (temp & (1 << 15))
-			temp |= 0xFFFF0000;
-		pressure = (float)temp * PRESSURE_SCALE;
-		sprintf (buffer, "%f", pressure);
-		send (sock, buffer, 255, 0);
-	}
+        while (1) {
+                sprintf (buffer, "Testing bbb1 UDP connection.\0");
+                sendto (sock, buffer, 255, 0, (struct sockaddr *)&client, sizeof(client));
+                usleep (5000);
+        }
 
 shutdown:
+        close (sock);
 
-	close (spiFile1);
-	close (spiFile2);
-
-	return 0;
+        return 0;
 }
 

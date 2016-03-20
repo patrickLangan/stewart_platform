@@ -78,22 +78,23 @@ int i2cRead (int handle)
         return (int)buffer[0] << 8 | (int)buffer[1];
 }
 
-int inetClientInit (const char *address)
+int udpInit (const unsigned int port)
 {
+        struct sockaddr_in localSock = {
+                .sin_family = AF_INET
+        };
         int sock;
-        struct sockaddr_in server;
 
-        if ((sock = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-                fprintf (stderr, "socket(AF_INET, SOCK_STREAM, 0) failed\n");
+        if ((sock = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+                fprintf (stderr, "socket() failed\n");
                 return -1;
         }
 
-        server.sin_addr.s_addr = inet_addr (address);
-        server.sin_family = AF_INET;
-        server.sin_port = htons (8888);
+        localSock.sin_port = htons (port);
+        localSock.sin_addr.s_addr = htonl (INADDR_ANY);
 
-        if (connect (sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
-                fprintf (stderr, "connect() failed\n");
+        if (bind (sock, (struct sockaddr *)&localSock, sizeof(localSock)) < 0) {
+                fprintf (stderr, "bind() failed\n");
                 return -1;
         }
 
@@ -102,8 +103,8 @@ int inetClientInit (const char *address)
 
 int main (int argc, char **argv)
 {
-        int sock;
-        char buffer[255];
+	char buffer[255] = {'\0'};
+	int sock;
 
         int temp;
         float length;
@@ -139,6 +140,8 @@ int main (int argc, char **argv)
 
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
+
+	sock = udpInit (1681);
 
 	//Test stepper motors / directional control valves
 	if (argc == 2 && argv[1][0] == 'e') {
@@ -186,11 +189,22 @@ int main (int argc, char **argv)
 		goto shutdown;
 	}
 
+	//Test TCP/UDP
+	if (argc == 2 && argv[1][0] == 'i') {
+		while (1) {
+			recv (sock, buffer, 255, 0);
+			printf ("%s\n", buffer);
+			usleep (5000);
+		}
+	}
+
 shutdown:
         pruTerminate ();
 
 	i2c_close (pressHandle1);
 	i2c_close (pressHandle2);
+
+	close (sock);
 
         return 0;
 }
