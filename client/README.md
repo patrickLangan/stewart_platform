@@ -24,7 +24,7 @@
 		CtrlRetract:	P8_42
 
 ##TODO
-- Correct ADC interface timing
+- New controller
 - Error checking
 - General cleanup
 

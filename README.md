@@ -2,11 +2,8 @@
 ==============
 
 ##TODO
-- Add static IP code
 - Interface between bbb's
-- Add length sensors
 - Motion file reader
-- New controller
 - Error checking
 - General cleanup
 
