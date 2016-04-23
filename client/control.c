@@ -12,8 +12,8 @@
 #include <arpa/inet.h>
 
 #define PRESSURE_SCALE 0.0091558323
-#define LENGTH_SCALE 3.906379093e-4
-#define LENGTH_ZERO 12.0
+#define LENGTH_SCALE 3.123433875e-4
+#define LENGTH_ZERO 993
 
 static void *pruDataMem0;
 static void *pruDataMem1;
@@ -79,22 +79,23 @@ int i2cRead (int handle)
         return (int)buffer[0] << 8 | (int)buffer[1];
 }
 
-int inetClientInit (const char *address)
+int udpInit (const unsigned int port)
 {
+        struct sockaddr_in localSock = {
+                .sin_family = AF_INET
+        };
         int sock;
-        struct sockaddr_in server;
 
-        if ((sock = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-                fprintf (stderr, "socket(AF_INET, SOCK_STREAM, 0) failed\n");
+        if ((sock = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+                fprintf (stderr, "socket() failed\n");
                 return -1;
         }
 
-        server.sin_addr.s_addr = inet_addr (address);
-        server.sin_family = AF_INET;
-        server.sin_port = htons (8888);
+        localSock.sin_port = htons (port);
+        localSock.sin_addr.s_addr = htonl (INADDR_ANY);
 
-        if (connect (sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
-                fprintf (stderr, "connect() failed\n");
+        if (bind (sock, (struct sockaddr *)&localSock, sizeof(localSock)) < 0) {
+                fprintf (stderr, "bind() failed\n");
                 return -1;
         }
 
@@ -194,6 +195,7 @@ int main (int argc, char **argv)
 
 	sprintf (fileName, "%d.csv", (int)startTime);
         file = fopen (fileName, "w");
+	fprintf (file, "time, setpoint, x, v, n1, n2, u1, u2\n");
 
 	//Choose setpoint
 	if (argc == 2)
@@ -224,10 +226,10 @@ int main (int argc, char **argv)
                 pressure2 = (float)temp * PRESSURE_SCALE;
 
 		temp = pruDataMem0_int[0];
-		length = (float)temp * LENGTH_SCALE - LENGTH_ZERO;
+		length = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE;
 
                 lastX = x;
-                x = length * 0.0254;
+                x = length;
                 v = (x - lastX) / (curTime - lastTime);
                 n1 = pressure2 * 6894.76 * x * A1 / (R * T);
                 n2 = pressure1 * 6894.76 * (L - x) * A2 / (R * T);
