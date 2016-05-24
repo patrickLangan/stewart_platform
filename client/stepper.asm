@@ -7,7 +7,7 @@
 #define CTBIR_1 0x22024
 
 #define OVER_STEPS 20
-#define STP_TIME 1000000
+#define STP_TIME 150000
 
 .macro WAIT
 .mparam reg, clicks
