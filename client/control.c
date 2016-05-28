@@ -107,9 +107,10 @@ int main (int argc, char **argv)
         FILE *file;
         char fileName[255];
 
-	float K[2][4];
-        float Kext[808];
-        float Kret[808];
+	float K[2][6];
+        float Ks[1212];
+	float findex;
+	float kslope;
 
 	int lengthHandle;
         int pressHandle1;
@@ -120,39 +121,64 @@ int main (int argc, char **argv)
 	double curTime = 0.0;
 	double startTime;
 
-        float length;
-        float pressure1;
-        float pressure2;
+	float g = 9.81; //m/s^2
+	float R = 8.314; //j/(K*mol)
+	float M = 28.97; //kg/kmol
 
-	float x = 0.0;
-	float v;
-	float n1;
-	float n2;
+	float N9 = 22.5;
+	float Pref = 101325.0; //Pa
+	float Tref = 15 + 273.15; //K
 
-	float x_0;
-	float v_0;
-	float n1_0;
-	float n2_0;
+	float T = 23.0 + 273.15; //K
+	float P0 = 101325.0; //Pa
+	float Ps = 90.0 * 6894.76 + P0; //Pa
 
-	float u1;
-	float u2;
+	float A1 = M_PI * pow(2.0 * 0.0254 / 2.0, 2.0); //m^2
+	float A2 = M_PI * (pow(2.0 * 0.0254 / 2.0, 2.0) - pow(0.75 * 0.0254 / 2.0, 2.0)); //m^2
+	float L = 30.0 * 0.0254; //m
+	//float m = 20.0 / 6.0; //kg
+	float m = (20.0 + 15.0 + 200.0 * 0.453592) / 6; //kg
 
-	float A1 = 0.0018288973;
-        float A2 = 0.0020268299;
-        float R = 8.314;
-        float T = 296.15;
-        float L = 0.762;
-        float Pr = 577.4825;
-        float Patm = 101325.0;
-        float m = 15.8757;
-        float g = 9.81;
+	float c1 = -5.0953e-06;
+	float c2 = 0.0028189;
+	float Xt = 0.6281276364;
 
-	float lastX;
-	float setpoint;
-        float inchwormLength = 0.0508;
+	float k = 1e9;
+
+	float valve_velmax = 100 / 0.9; //%/s
+	float valve_trvmax = 100.0; //%
+
+	float setpoint = 0.1; //m
+
+	float inchworm = 3.0 * 0.0254; //m
+
+	float C1 = R * T / m;
+	float C2 = P0 * (A1 - A2) / m;
+	float C3 = N9 * Pref / (3600000.0 * R * Tref) * sqrt(1.0 / (M * T));
+	float C4 = 1 / (3 * Ps * Xt);
+	float C5 = R * T / A1;
+	float C6 = R * T / A2;
+	float C7 = 2 / 3 * sqrt(Xt) * R * T / A1;
+	float C8 = 2 / 3 * sqrt(Xt) * R * T / A2;
+
+	float x1 = 0.0;
+	float x2 = 0.0;
+	float x3 = 0.0;
+	float x4 = 0.0;
+	float x5 = 0.0;
+	float x6 = 0.0;
+
+	float u1 = 0.0;
+	float u2 = 0.0;
+
+	float x0 = setpoint; //m
+	float v0 = 0.0; //m/s
+	float P10 = Ps * 0.8; //kPa
+	float P20 = (P10 * A1 - P0 * (A1 - A2) - g * m) / A2; //Pa
+	float n10 = P10 * A1 * x0 / (R * T); //mol
+	float n20 = (P10 * A1 - P0 * (A1 - A2) - g * m) * (L - x0) / (R * T); //mol
 
         int temp;
-        float index;
         int i, j;
 
         if (setjmp (buf))
@@ -178,16 +204,15 @@ int main (int argc, char **argv)
                 return 1;
         }
 
-	file = fopen ("Kext.bin", "rb");
-        fread (Kext, sizeof (*Kext), 808, file);
-        fclose (file);
-
-        file = fopen ("Kret.bin", "rb");
-        fread (Kret, sizeof (*Kret), 808, file);
+	file = fopen ("K.bin", "rb");
+        fread (Ks, sizeof (*Ks), 1212, file);
         fclose (file);
 
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
+
+	temp = pruDataMem0_int[0];
+	x1 = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE - x0;
 
 	gettimeofday (&curTimeval, NULL);
 	curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
@@ -195,30 +220,27 @@ int main (int argc, char **argv)
 
 	sprintf (fileName, "%d.csv", (int)startTime);
         file = fopen (fileName, "w");
-	fprintf (file, "time, setpoint, x, v, n1, n2, u1, u2\n");
-
-	//Choose setpoint
-	if (argc == 2)
-		switch (argv[1][0]) {
-		case 'z':
-			setpoint = 0.1905;
-			break;
-		case 'x':
-			setpoint = 0.5715;
-			break;
-		default :
-			setpoint = 0.381;
-		}
-	else
-		setpoint = 0.381;
+	fprintf (file, "time, x0, x, v, n1, n2, x5, x6, u1, u2\n");
 
 	//Gain scheduling controller
 	while (1) {
+		float length;
+		float pressure1;
+		float pressure2;
+
+		float delta_t;
+		float lastX1;
+
+		float last_x0;
+		float last_n10;
+		float last_n20;
+
                 usleep (5000);
 
                 lastTime = curTime;
                 gettimeofday (&curTimeval, NULL);
                 curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
+		delta_t = curTime - lastTime;
 
                 temp = i2cRead (pressHandle1);
                 pressure1 = (float)temp * PRESSURE_SCALE;
@@ -228,67 +250,85 @@ int main (int argc, char **argv)
 		temp = pruDataMem0_int[0];
 		length = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE;
 
-                lastX = x;
-                x = length;
-                v = (x - lastX) / (curTime - lastTime);
-                n1 = pressure2 * 6894.76 * x * A1 / (R * T);
-                n2 = pressure1 * 6894.76 * (L - x) * A2 / (R * T);
+                lastX1 = x1;
+                x1 = length - x0;
+                x2 = (x1 - lastX1) / delta_t;
+                x3 = pressure1 * 6894.76 * (x1 + x0) * A1 / (R * T) - n10;
+                x4 = pressure2 * 6894.76 * (L - x1 - x0) * A2 / (R * T) - n20;
+		x5 += u1 * delta_t;
+		x6 += u2 * delta_t;
 
-		x_0 = setpoint;
+		if (x1 + x0 > L)
+			x1 = L - x0;
+		else if (x1 + x0 < 0)
+			x1 = -x0;
 
-                if (x > x_0 && x - x_0 > inchwormLength)
-                        x_0 = x - inchwormLength;
-                else if (x_0 > x && x_0 - x > inchwormLength)
-                        x_0 = x + inchwormLength;
+		if (x5 > valve_trvmax)
+			x5 = valve_trvmax;
+		else if (x5 < -valve_trvmax)
+			x5 = -valve_trvmax;
 
-                n1_0 = 1000.0 * Pr * A1 * x_0 / (R * T) - 0.00001;
-                n2_0 = (L - x_0) / (R * T) * (1000.0 * Pr * A1 - Patm * (A1 - A2) - m * g);
+		if (x5 + x6 > valve_trvmax)
+			x6 = valve_trvmax - x5;
+		else if (x5 + x6 < -valve_trvmax)
+			x6 = -valve_trvmax - x5;
 
-                index = x_0 / L * 99.0;
-                i = (int)index * 8;
-                j = i + 8;
-                if (x > x_0) {
-                        K[0][0] = (Kret[j + 0] - Kret[i + 0]) * (index - (float)(i / 8)) + Kret[i + 0];
-                        K[0][1] = (Kret[j + 1] - Kret[i + 1]) * (index - (float)(i / 8)) + Kret[i + 1];
-                        K[0][2] = (Kret[j + 2] - Kret[i + 2]) * (index - (float)(i / 8)) + Kret[i + 2];
-                        K[0][3] = (Kret[j + 3] - Kret[i + 3]) * (index - (float)(i / 8)) + Kret[i + 3];
-                        K[1][0] = (Kret[j + 4] - Kret[i + 4]) * (index - (float)(i / 8)) + Kret[i + 4];
-                        K[1][1] = (Kret[j + 5] - Kret[i + 5]) * (index - (float)(i / 8)) + Kret[i + 5];
-                        K[1][2] = (Kret[j + 6] - Kret[i + 6]) * (index - (float)(i / 8)) + Kret[i + 6];
-                        K[1][3] = (Kret[j + 7] - Kret[i + 7]) * (index - (float)(i / 8)) + Kret[i + 7];
-                } else {
-                        K[0][0] = (Kext[j + 0] - Kext[i + 0]) * (index - (float)(i / 8)) + Kext[i + 0];
-                        K[0][1] = (Kext[j + 1] - Kext[i + 1]) * (index - (float)(i / 8)) + Kext[i + 1];
-                        K[0][2] = (Kext[j + 2] - Kext[i + 2]) * (index - (float)(i / 8)) + Kext[i + 2];
-                        K[0][3] = (Kext[j + 3] - Kext[i + 3]) * (index - (float)(i / 8)) + Kext[i + 3];
-                        K[1][0] = (Kext[j + 4] - Kext[i + 4]) * (index - (float)(i / 8)) + Kext[i + 4];
-                        K[1][1] = (Kext[j + 5] - Kext[i + 5]) * (index - (float)(i / 8)) + Kext[i + 5];
-                        K[1][2] = (Kext[j + 6] - Kext[i + 6]) * (index - (float)(i / 8)) + Kext[i + 6];
-                        K[1][3] = (Kext[j + 7] - Kext[i + 7]) * (index - (float)(i / 8)) + Kext[i + 7];
-                }
+		if (setpoint - x1 - x0 > inchworm)
+			setpoint = inchworm + x1 + x0;
+		else if (x1 + x0 - setpoint > inchworm)
+			setpoint = x1 + x0 - inchworm;
 
-                u1 = (x - x_0) * -K[0][0] + (v - v_0) * -K[0][1] + (n1 - n1_0) * -K[0][2] + (n2 - n2_0) * -K[0][3];
-                u2 = (x - x_0) * -K[1][0] + (v - v_0) * -K[1][1] + (n1 - n1_0) * -K[1][2] + (n2 - n2_0) * -K[1][3];
+		last_x0 = x0;
+		last_n10 = n10;
+		last_n20 = n20;
 
-                if (u1 < 0.0)
-                        u1 = 0.0;
-                if (u1 > 100.0)
-                        u1 = 100.0;
+		x0 = setpoint;
+		n10 = P10 * A1 * x0 / (R * T);
+		n20 = (P10 * A1 - P0 * (A1 - A2) - g * m) * (L - x0) / (R * T);
 
-                if (u2 < 0.0)
-                        u2 = 0.0;
-                if (u2 > 100.0)
-                        u2 = 100.0;
+		x1 = x1 + last_x0 - x0;
+		x3 = x3 + last_n10 - n10;
+		x4 = x4 + last_n20 - n20;
 
-                if (x > x_0) {
-                        u1 *= -1.0;
-                        u2 *= -1.0;
-                }
+                findex = x0 / L * 99.0;
+                i = (int)findex * 12;
+                j = i + 12;
+		kslope = findex - (float)(i / 12);
+		K[0][0] = (Ks[j + 0] - Ks[i + 0]) * kslope + Ks[i + 0];
+		K[0][1] = (Ks[j + 1] - Ks[i + 1]) * kslope + Ks[i + 1];
+		K[0][2] = (Ks[j + 2] - Ks[i + 2]) * kslope + Ks[i + 2];
+		K[0][3] = (Ks[j + 3] - Ks[i + 3]) * kslope + Ks[i + 3];
+		K[0][4] = (Ks[j + 4] - Ks[i + 4]) * kslope + Ks[i + 4];
+		K[0][5] = (Ks[j + 5] - Ks[i + 5]) * kslope + Ks[i + 5];
+		K[1][0] = (Ks[j + 6] - Ks[i + 6]) * kslope + Ks[i + 6];
+		K[1][1] = (Ks[j + 7] - Ks[i + 7]) * kslope + Ks[i + 7];
+		K[1][2] = (Ks[j + 8] - Ks[i + 8]) * kslope + Ks[i + 8];
+		K[1][3] = (Ks[j + 9] - Ks[i + 9]) * kslope + Ks[i + 9];
+		K[1][4] = (Ks[j + 10] - Ks[i + 10]) * kslope + Ks[i + 10];
+		K[1][5] = (Ks[j + 11] - Ks[i + 11]) * kslope + Ks[i + 11];
 
-                pruDataMem1_int[1] = (int)(u1 * 5.0);
-                pruDataMem1_int[0] = (int)(u2 * 5.0);
+		u1 = -K[0][0] * x1 - K[0][1] * x2 - K[0][2] * x3 - K[0][3] * x4 - K[0][4] * x5 - K[0][5] * x6;
+		u2 = -K[1][0] * x1 - K[1][1] * x2 - K[1][2] * x3 - K[1][3] * x4 - K[1][4] * x5 - K[1][5] * x6;
 
-                fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x_0, x, v, n1, n2, u1, u2);
+		if (u1 > valve_velmax)
+			u1 = valve_velmax;
+		else if (u1 < -valve_velmax)
+			u1 = -valve_velmax;
+
+		if (u1 + u2 > valve_velmax)
+			u2 = valve_velmax - u1;
+		else if (u1 + u2 < -valve_velmax)
+			u2 = -valve_velmax - u1;
+
+		if (x5 + x6 > 0) {
+			pruDataMem1_int[1] = (int)(fabs(x5) * 5.0);
+			pruDataMem1_int[0] = (int)((x5 + x6) * 5.0);
+		} else {
+			pruDataMem1_int[1] = (int)(fabs(x5) * -5.0);
+			pruDataMem1_int[0] = (int)((x5 + x6) * 5.0);
+		}
+
+                fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x0, x1 + x0, x2, x3 + n10, x4 + n20, x5, x6, u1, u2);
         }
 
 shutdown:
