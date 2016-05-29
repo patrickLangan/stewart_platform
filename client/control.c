@@ -136,7 +136,6 @@ int main (int argc, char **argv)
 	float A1 = M_PI * pow(2.0 * 0.0254 / 2.0, 2.0); //m^2
 	float A2 = M_PI * (pow(2.0 * 0.0254 / 2.0, 2.0) - pow(0.75 * 0.0254 / 2.0, 2.0)); //m^2
 	float L = 30.0 * 0.0254; //m
-	//float m = 20.0 / 6.0; //kg
 	float m = (20.0 + 15.0 + 200.0 * 0.453592) / 6; //kg
 
 	float c1 = -5.0953e-06;
@@ -148,7 +147,7 @@ int main (int argc, char **argv)
 	float valve_velmax = 100 / 0.9; //%/s
 	float valve_trvmax = 100.0; //%
 
-	float setpoint = 0.1; //m
+	float setpoint = L / 2.0; //m
 
 	float inchworm = 3.0 * 0.0254; //m
 
@@ -177,6 +176,9 @@ int main (int argc, char **argv)
 	float P20 = (P10 * A1 - P0 * (A1 - A2) - g * m) / A2; //Pa
 	float n10 = P10 * A1 * x0 / (R * T); //mol
 	float n20 = (P10 * A1 - P0 * (A1 - A2) - g * m) * (L - x0) / (R * T); //mol
+
+	float stepTime = 5.0;
+	int toggle = 0;
 
         int temp;
         int i, j;
@@ -273,10 +275,14 @@ int main (int argc, char **argv)
 		else if (x5 + x6 < -valve_trvmax)
 			x6 = -valve_trvmax - x5;
 
-		if (setpoint - x1 - x0 > inchworm)
-			setpoint = inchworm + x1 + x0;
-		else if (x1 + x0 - setpoint > inchworm)
-			setpoint = x1 + x0 - inchworm;
+		if (curTime - startTime > stepTime) {
+			if (toggle == 1)
+				setpoint = L / 2.0;
+			else
+				setpoint = 0.1;
+			toggle = !toggle;
+			stepTime += 5.0;
+		}
 
 		last_x0 = x0;
 		last_n10 = n10;
