@@ -232,6 +232,9 @@ int main (int argc, char **argv)
 		float last_n10;
 		float last_n20;
 
+		int out1;
+		int out2;
+
                 usleep (5000);
 
                 lastTime = curTime;
@@ -322,13 +325,12 @@ int main (int argc, char **argv)
 		else if (u1 + u2 < -valve_velmax)
 			u2 = -valve_velmax - u1;
 
-		if (x5 + x6 > 0) {
-			pruDataMem1_int[1] = (int)(fabs(x5) * 5.0);
-			pruDataMem1_int[0] = (int)((x5 + x6) * 5.0);
-		} else {
-			pruDataMem1_int[1] = (int)(fabs(x5) * -5.0);
-			pruDataMem1_int[0] = (int)((x5 + x6) * 5.0);
-		}
+		out2 = (int)((x5 + x6) * 5.0);
+		out1 = (int)(fabs(x5) * 5.0) * ((out2 < 0) ? -1 : 1);
+
+
+		pruDataMem1_int[1] = out1;
+		pruDataMem1_int[0] = out2;
 
 		printf ("%f\n", (x1 + x0 - setpoint) / 0.0254);
                 fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x0, x1 + x0, x2, x3 + n10, x4 + n20, x5, x6, u1, u2);
