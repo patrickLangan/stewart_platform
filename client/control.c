@@ -127,16 +127,16 @@ int main (int argc, char **argv)
 
 	float N9 = 22.5;
 	float Pref = 101325.0; //Pa
-	float Tref = 15 + 273.15; //K
+	float Tref = 288.15; //K
 
-	float T = 23.0 + 273.15; //K
+	float T = 296.15; //K
 	float P0 = 101325.0; //Pa
-	float Ps = 90.0 * 6894.76 + P0; //Pa
+	float Ps = 721853.4; //Pa
 
-	float A1 = M_PI * pow(2.0 * 0.0254 / 2.0, 2.0); //m^2
-	float A2 = M_PI * (pow(2.0 * 0.0254 / 2.0, 2.0) - pow(0.75 * 0.0254 / 2.0, 2.0)); //m^2
-	float L = 30.0 * 0.0254; //m
-	float m = (20.0 + 15.0 + 200.0 * 0.453592) / 6; //kg
+	float A1 = 0.0020268299; //m^2
+	float A2 = 0.0017418070; //m^2
+	float L = 0.762; //m
+	float m = 24.5433; //kg
 
 	float c1 = -5.0953e-06;
 	float c2 = 0.0028189;
@@ -144,21 +144,10 @@ int main (int argc, char **argv)
 
 	float k = 1e9;
 
-	float valve_velmax = 100 / 0.9; //%/s
+	float valve_velmax = 111.1111; //%/s
 	float valve_trvmax = 100.0; //%
 
-	float setpoint = L / 2.0; //m
-
-	float inchworm = 3.0 * 0.0254; //m
-
-	float C1 = R * T / m;
-	float C2 = P0 * (A1 - A2) / m;
-	float C3 = N9 * Pref / (3600000.0 * R * Tref) * sqrt(1.0 / (M * T));
-	float C4 = 1 / (3 * Ps * Xt);
-	float C5 = R * T / A1;
-	float C6 = R * T / A2;
-	float C7 = 2 / 3 * sqrt(Xt) * R * T / A1;
-	float C8 = 2 / 3 * sqrt(Xt) * R * T / A2;
+	float setpoint = 0.381; //m
 
 	float x1 = 0.0;
 	float x2 = 0.0;
@@ -170,12 +159,12 @@ int main (int argc, char **argv)
 	float u1 = 0.0;
 	float u2 = 0.0;
 
-	float x0 = setpoint; //m
-	float v0 = 0.0; //m/s
-	float P10 = Ps * 0.8; //kPa
-	float P20 = (P10 * A1 - P0 * (A1 - A2) - g * m) / A2; //Pa
-	float n10 = P10 * A1 * x0 / (R * T); //mol
-	float n20 = (P10 * A1 - P0 * (A1 - A2) - g * m) * (L - x0) / (R * T); //mol
+	float x0; //m
+	float v0; //m/s
+	float P10; //kPa
+	float P20; //Pa
+	float n10; //mol
+	float n20; //mol
 
 	float stepTime = 5.0;
 	int toggle = 0;
@@ -212,6 +201,12 @@ int main (int argc, char **argv)
 
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
+
+	x0 = setpoint;
+	v0 = 0.0;
+	P10 = Ps * 0.8;
+	P20 = (P10 * A1 - P0 * (A1 - A2) - g * m) / A2;
+	n10 = P10 * A1 * x0 / (R * T);
 
 	temp = pruDataMem0_int[0];
 	x1 = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE - x0;
@@ -295,6 +290,7 @@ int main (int argc, char **argv)
 		x1 = x1 + last_x0 - x0;
 		x3 = x3 + last_n10 - n10;
 		x4 = x4 + last_n20 - n20;
+		lastX1 = lastX1 + last_x0 - x0;
 
                 findex = x0 / L * 99.0;
                 i = (int)findex * 12;
@@ -334,6 +330,7 @@ int main (int argc, char **argv)
 			pruDataMem1_int[0] = (int)((x5 + x6) * 5.0);
 		}
 
+		printf ("%f\n", (x1 + x0 - setpoint) / 0.0254);
                 fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x0, x1 + x0, x2, x3 + n10, x4 + n20, x5, x6, u1, u2);
         }
 
