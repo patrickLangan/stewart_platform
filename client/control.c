@@ -162,12 +162,15 @@ int main (int argc, char **argv)
 	float x0; //m
 	float v0; //m/s
 	float P10; //kPa
-	float P20; //Pa
 	float n10; //mol
 	float n20; //mol
 
+	float inchworm = 0.1016; //m
+
 	float stepTime = 5.0;
 	int toggle = 0;
+
+	float mg;
 
         int temp;
         int i, j;
@@ -202,11 +205,13 @@ int main (int argc, char **argv)
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
 
+	mg = -469.0059787 * setpoint + 226.588527;
+
 	x0 = setpoint;
 	v0 = 0.0;
 	P10 = Ps * 0.8;
-	P20 = (P10 * A1 - P0 * (A1 - A2) - g * m) / A2;
 	n10 = P10 * A1 * x0 / (R * T);
+	n20 = (P10 * A1 - P0 * (A1 - A2) - mg) * (L - x0) / (R * T);
 
 	temp = pruDataMem0_int[0];
 	x1 = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE - x0;
@@ -231,6 +236,8 @@ int main (int argc, char **argv)
 		float last_x0;
 		float last_n10;
 		float last_n20;
+
+		float inchpoint;
 
 		int out1;
 		int out2;
@@ -282,13 +289,21 @@ int main (int argc, char **argv)
 			stepTime += 5.0;
 		}
 
+		inchpoint = setpoint;
+		if (setpoint - x1 - x0 > inchworm)
+			inchpoint = inchworm + x1 + x0;
+		else if (x1 + x0 - setpoint > inchworm)
+			inchpoint = x1 + x0 - inchworm;
+
 		last_x0 = x0;
 		last_n10 = n10;
 		last_n20 = n20;
 
-		x0 = setpoint;
+		mg = -469.0059787 * inchpoint + 226.588527;
+
+		x0 = inchpoint;
 		n10 = P10 * A1 * x0 / (R * T);
-		n20 = (P10 * A1 - P0 * (A1 - A2) - g * m) * (L - x0) / (R * T);
+		n20 = (P10 * A1 - P0 * (A1 - A2) - mg) * (L - x0) / (R * T);
 
 		x1 = x1 + last_x0 - x0;
 		x3 = x3 + last_n10 - n10;
