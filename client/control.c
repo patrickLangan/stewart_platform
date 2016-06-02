@@ -167,10 +167,10 @@ int main (int argc, char **argv)
 
 	float inchworm = 0.1016; //m
 
-	float stepTime = 5.0;
-	int toggle = 0;
-
 	float mg;
+
+	char buffer[8];
+	int sock;
 
         int temp;
         int i, j;
@@ -205,7 +205,10 @@ int main (int argc, char **argv)
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
 
-	mg = -469.0059787 * setpoint + 226.588527;
+	sock = udpInit(1681);
+
+	//mg = -469.0059787 * setpoint + 226.588527;
+	mg = 125; //N
 
 	x0 = setpoint;
 	v0 = 0.0;
@@ -220,9 +223,11 @@ int main (int argc, char **argv)
 	curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 	startTime = curTime;
 
+/*
 	sprintf (fileName, "%d.csv", (int)startTime);
         file = fopen (fileName, "w");
 	fprintf (file, "time, x0, x, v, n1, n2, x5, x6, u1, u2\n");
+*/
 
 	//Gain scheduling controller
 	while (1) {
@@ -248,6 +253,9 @@ int main (int argc, char **argv)
                 gettimeofday (&curTimeval, NULL);
                 curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 		delta_t = curTime - lastTime;
+
+		if (recv(sock, buffer, 8, 0) == 8)
+			setpoint = *((float *)buffer);
 
                 temp = i2cRead (pressHandle1);
                 pressure1 = (float)temp * PRESSURE_SCALE;
@@ -280,15 +288,6 @@ int main (int argc, char **argv)
 		else if (x5 + x6 < -valve_trvmax)
 			x6 = -valve_trvmax - x5;
 
-		if (curTime - startTime > stepTime) {
-			if (toggle == 1)
-				setpoint = L / 2.0;
-			else
-				setpoint = 0.1;
-			toggle = !toggle;
-			stepTime += 5.0;
-		}
-
 		inchpoint = setpoint;
 		if (setpoint - x1 - x0 > inchworm)
 			inchpoint = inchworm + x1 + x0;
@@ -299,7 +298,7 @@ int main (int argc, char **argv)
 		last_n10 = n10;
 		last_n20 = n20;
 
-		mg = -469.0059787 * inchpoint + 226.588527;
+		//mg = -469.0059787 * inchpoint + 226.588527;
 
 		x0 = inchpoint;
 		n10 = P10 * A1 * x0 / (R * T);
@@ -347,8 +346,8 @@ int main (int argc, char **argv)
 		pruDataMem1_int[1] = out1;
 		pruDataMem1_int[0] = out2;
 
-		printf ("%f\n", (x1 + x0 - setpoint) / 0.0254);
-                fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x0, x1 + x0, x2, x3 + n10, x4 + n20, x5, x6, u1, u2);
+		//printf ("%f\n", (x1 + x0 - setpoint) / 0.0254);
+                //fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x0, x1 + x0, x2, x3 + n10, x4 + n20, x5, x6, u1, u2);
         }
 
 shutdown:
@@ -359,7 +358,7 @@ shutdown:
 
         pruTerminate ();
 
-	fclose (file);
+	//fclose (file);
 
 	i2c_close (pressHandle1);
 	i2c_close (pressHandle2);
