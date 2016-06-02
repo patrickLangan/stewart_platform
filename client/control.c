@@ -268,8 +268,8 @@ int main (int argc, char **argv)
                 lastX1 = x1;
                 x1 = length - x0;
                 x2 = (x1 - lastX1) / delta_t;
-                x3 = pressure1 * 6894.76 * (x1 + x0) * A1 / (R * T) - n10;
-                x4 = pressure2 * 6894.76 * (L - x1 - x0) * A2 / (R * T) - n20;
+                x3 = pressure2 * 6894.76 * (x1 + x0) * A1 / (R * T) - n10;
+                x4 = pressure1 * 6894.76 * (L - x1 - x0) * A2 / (R * T) - n20;
 		x5 += u1 * delta_t;
 		x6 += u2 * delta_t;
 
