@@ -11,6 +11,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include <string.h>
+
 #define PRESSURE_SCALE 0.0022663493 //1.6 * 23.206 / 16383
 #define FORCE_SCALE 1.164153357e-4 //(0.5 * 3.3 / 128) / (2^23 - 1) / (2e-3 * 3.3) * 500
 
@@ -101,20 +103,56 @@ int main (int argc, char **argv)
 
 	char addrStr[16];
 
+	FILE *file;
+	size_t len;
+
+	int stepNum;
+	double timeStep;
+	int loopEnd;
+	int loopStart;
+
+	float setpoint[6];
+
         struct timeval curTimeval;
         double curTime;
         double startTime;
+        double loopTime;
+	double progTimei
 
-	float nextToggle = 0;
-	float toggleTimewidth = 3;
-	int toggle = 0;
-
-	int i;
+	float temp;
+	int i, j;
 
         if (setjmp (buf))
                 goto shutdown;
 
         signal (SIGINT, signalCatcher);
+
+	if (argc != 2) {
+		fprintf (stderr, "Expects one input, the name of the file to run.\n");
+		return 1;
+	}
+
+	len = strlen (argv[1]);
+	if (!(argv[1][len - 3] == 'b' && argv[1][len - 2] == 'i' && argv[1][len - 1] == 'n')) {
+		fprintf (stderr, "Expects a .bin file.\n");
+		return 1;
+	}
+
+        if (!(file = fopen (argv[1], "r"))) {
+                fprintf (stderr, "Failed to open input file: %s\n", argv[1]);
+                return 1;
+        }
+
+        fread (&temp, sizeof(float), 1, file);
+	stepNum = (int)temp;
+        fread (&temp, sizeof(float), 1, file);
+	timeStep = (double)temp / 1000.0;
+        fread (&temp, sizeof(float), 1, file);
+	loopEnd = (int)temp + 1;
+        fread (&temp, sizeof(float), 1, file);
+	loopStart = (int)temp;
+
+	printf ("stepNum: %d\ntimeStep: %d\nloopEnd: %d\nloopStart: %d\n", stepNum, timeStep, loopEnd, loopStart);
 
         sock = udpInit (1680);
 
@@ -124,40 +162,43 @@ int main (int argc, char **argv)
 		inet_aton (addrStr, &client[i].sin_addr);
 	}
 
-	*((float *)buffer) = 0.2;
-
 	gettimeofday (&curTimeval, NULL);
         curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
         startTime = curTime;
+	loopTime = curTime;
 
-        while (1) {
-		usleep (5000);
-
+LOOP:
+        while (i < loopEnd) {
                 gettimeofday (&curTimeval, NULL);
                 curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 
-		if (curTime - startTime> nextToggle) {
-			if (toggle) {
-				*((float *)buffer) = 0.381;
-				*((float *)buffer2) = 0.2;
-			} else {
-				*((float *)buffer) = 0.2;
-				*((float *)buffer2) = 0.381;
-			}
-			toggle = !toggle;
-			nextToggle += toggleTimewidth;
-		}
+		if (curTime - loopTime > progTime) {
+			for (j = 0; j < 6; j++)
+				fread (&setpoint[j], sizeof(float), 1, file);
 
-                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[0], sizeof(client[0]));
-                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[1], sizeof(client[1]));
-                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[2], sizeof(client[2]));
-                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[3], sizeof(client[3]));
-                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[4], sizeof(client[4]));
-                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[5], sizeof(client[5]));
+			for (j = 0; j < 5; j++)
+				printf ("%f, ", setpoint[j]);
+			printf ("%f\n", setpoint[j]);
+
+			for (j = 0; j < 6; j++) {
+				*((float *)buffer) = setpoint[j] * 0.0254;;
+				sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[j], sizeof(client[j]));
+			}
+
+			progTime += timeStep;
+			i++;
+		}
         }
+	fseek (file, ((loopStart * 6) + 4) * sizeof(float), SEEK_SET);
+	gettimeofday (&startTime, NULL);
+	loopTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
+	i = loopStart;
+	progTime = timeStep;
+	goto LOOP;
 
 shutdown:
         close (sock);
+	close (file);
 
         return 0;
 }

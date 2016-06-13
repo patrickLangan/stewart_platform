@@ -2,7 +2,6 @@
 ==============
 
 ##TODO
-- Motion file reader
 - Error checking
 - General cleanup
 
