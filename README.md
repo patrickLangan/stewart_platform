@@ -2,7 +2,6 @@
 ==============
 
 ##TODO
-- Interface between bbb's
 - Motion file reader
 - Error checking
 - General cleanup

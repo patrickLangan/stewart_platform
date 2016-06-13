@@ -92,11 +92,24 @@ int udpInit (const unsigned int port)
 
 int main (int argc, char **argv)
 {
-        struct sockaddr_in client = {
-                .sin_family = AF_INET
-        };
-        char buffer[255] = {'\0'};
+        struct sockaddr_in client[6] = {
+		{.sin_family = AF_INET}
+	};
+        char buffer[8];
+        char buffer2[8];
         int sock;
+
+	char addrStr[16];
+
+        struct timeval curTimeval;
+        double curTime;
+        double startTime;
+
+	float nextToggle = 0;
+	float toggleTimewidth = 3;
+	int toggle = 0;
+
+	int i;
 
         if (setjmp (buf))
                 goto shutdown;
@@ -105,13 +118,42 @@ int main (int argc, char **argv)
 
         sock = udpInit (1680);
 
-        client.sin_port = htons (1681);
-        inet_aton ("192.168.0.11", &client.sin_addr);
+	for (i = 0; i < 6; i++) {
+		client[i].sin_port = htons (1681 + i);
+		sprintf (addrStr, "192.168.0.1%d\0", i + 1);
+		inet_aton (addrStr, &client[i].sin_addr);
+	}
+
+	*((float *)buffer) = 0.2;
+
+	gettimeofday (&curTimeval, NULL);
+        curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
+        startTime = curTime;
 
         while (1) {
-                sprintf (buffer, "Testing bbb1 UDP connection.\0");
-                sendto (sock, buffer, 255, 0, (struct sockaddr *)&client, sizeof(client));
-                usleep (5000);
+		usleep (5000);
+
+                gettimeofday (&curTimeval, NULL);
+                curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
+
+		if (curTime - startTime> nextToggle) {
+			if (toggle) {
+				*((float *)buffer) = 0.381;
+				*((float *)buffer2) = 0.2;
+			} else {
+				*((float *)buffer) = 0.2;
+				*((float *)buffer2) = 0.381;
+			}
+			toggle = !toggle;
+			nextToggle += toggleTimewidth;
+		}
+
+                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[0], sizeof(client[0]));
+                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[1], sizeof(client[1]));
+                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[2], sizeof(client[2]));
+                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[3], sizeof(client[3]));
+                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[4], sizeof(client[4]));
+                sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[5], sizeof(client[5]));
         }
 
 shutdown:
