@@ -5,6 +5,9 @@ All:
 	gcc -c test.c
 	gcc test.o -L/user/lib -lm -lprussdrv -lpthread i2cfunc.c -o test
 	rm test.o
+	gcc -c loosenTighten.c
+	gcc loosenTighten.o -L/user/lib -lm -lprussdrv -lpthread i2cfunc.c -o loosenTighten
+	rm loosenTighten.o
 	gcc -c control.c
 	gcc control.o -L/user/lib -lm -lprussdrv -lpthread i2cfunc.c -o control
 	rm control.o
