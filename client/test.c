@@ -139,6 +139,9 @@ int main (int argc, char **argv)
                 return 1;
         }
 
+	pruDataMem1_int[0] = 0;
+	pruDataMem1_int[1] = 0;
+
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
 
