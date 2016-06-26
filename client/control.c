@@ -167,7 +167,7 @@ int main (int argc, char **argv)
 
 	float inchworm = 0.1016; //m
 
-	float mg;
+	float mg = 125.0; //N
 
 	char buffer[8];
 	int sock;
@@ -206,9 +206,6 @@ int main (int argc, char **argv)
         pressHandle2 = i2c_open (2, 0x28);
 
 	sock = udpInit(1681);
-
-	//mg = -469.0059787 * setpoint + 226.588527;
-	mg = 125; //N
 
 	x0 = setpoint;
 	v0 = 0.0;
@@ -254,8 +251,10 @@ int main (int argc, char **argv)
                 curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 		delta_t = curTime - lastTime;
 
-		if (recv(sock, buffer, 8, 0) == 8)
+		if (recv(sock, buffer, 8, 0) == 8) {
 			setpoint = *((float *)buffer);
+			mg = *((float *)buffer + 1);
+		}
 
                 temp = i2cRead (pressHandle1);
                 pressure1 = (float)temp * PRESSURE_SCALE;
@@ -297,8 +296,6 @@ int main (int argc, char **argv)
 		last_x0 = x0;
 		last_n10 = n10;
 		last_n20 = n20;
-
-		//mg = -469.0059787 * inchpoint + 226.588527;
 
 		x0 = inchpoint;
 		n10 = P10 * A1 * x0 / (R * T);
