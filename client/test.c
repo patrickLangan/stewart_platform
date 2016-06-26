@@ -149,21 +149,21 @@ int main (int argc, char **argv)
 
 	//Test stepper motors / directional control valves
 	if (argc == 2 && argv[1][0] == 'e') {
-		pruDataMem1_int[0] = 400;
-		pruDataMem1_int[1] = 400;
-		sleep (4);
+		pruDataMem1_int[0] = 0;
+		pruDataMem1_int[1] = 100;
+		sleep (2);
 		pruDataMem1_int[0] = 0;
 		pruDataMem1_int[1] = 0;
-		sleep (4);
+		sleep (2);
 		goto shutdown;
 	}
 	if (argc == 2 && argv[1][0] == 'r') {
 		pruDataMem1_int[0] = -400;
-		pruDataMem1_int[1] = -400;
-		sleep (4);
+		pruDataMem1_int[1] = 0;
+		sleep (2);
 		pruDataMem1_int[0] = 0;
 		pruDataMem1_int[1] = 0;
-		sleep (4);
+		sleep (2);
 		goto shutdown;
 	}
 
