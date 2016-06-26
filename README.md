@@ -2,6 +2,8 @@
 ==============
 
 ##TODO
+- Finish pressurize script
+- Better method of setting client port numbers
 - Error checking
 - General cleanup
 

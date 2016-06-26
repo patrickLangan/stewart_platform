@@ -16,6 +16,8 @@
 #define PRESSURE_SCALE 0.0022663493 //1.6 * 23.206 / 16383
 #define FORCE_SCALE 1.164153357e-4 //(0.5 * 3.3 / 128) / (2^23 - 1) / (2e-3 * 3.3) * 500
 
+#define FORCE_FROM_FILE 1
+
 static int spiBits = 8;
 static int spiSpeed = 20000;
 
@@ -98,7 +100,6 @@ int main (int argc, char **argv)
 		{.sin_family = AF_INET}
 	};
         char buffer[8];
-        char buffer2[8];
         int sock;
 
 	char addrStr[16];
@@ -112,6 +113,7 @@ int main (int argc, char **argv)
 	int loopStart;
 
 	float setpoint[6];
+	float force[6] = {0.0};
 
         struct timeval curTimeval;
         double curTime;
@@ -152,7 +154,7 @@ int main (int argc, char **argv)
         fread (&temp, sizeof(float), 1, file);
 	loopStart = (int)temp;
 
-	printf ("stepNum: %d\ntimeStep: %d\nloopEnd: %d\nloopStart: %d\n", stepNum, timeStep, loopEnd, loopStart);
+	printf ("stepNum: %d\ntimeStep: %lf\nloopEnd: %d\nloopStart: %d\n", stepNum, timeStep, loopEnd, loopStart);
 
         sock = udpInit (1680);
 
@@ -168,6 +170,7 @@ int main (int argc, char **argv)
 	loopTime = curTime;
 
 LOOP:
+	progTime = timeStep;
         while (i < loopEnd) {
                 gettimeofday (&curTimeval, NULL);
                 curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
@@ -176,12 +179,18 @@ LOOP:
 			for (j = 0; j < 6; j++)
 				fread (&setpoint[j], sizeof(float), 1, file);
 
+			#if FORCE_FROM_FILE
+			for (j = 0; j < 6; j++)
+				fread (&force[j], sizeof(float), 1, file);
+			#endif
+
 			for (j = 0; j < 5; j++)
 				printf ("%f, ", setpoint[j]);
-			printf ("%f\n", setpoint[j]);
+			printf ("%f\n", setpoint[5]);
 
 			for (j = 0; j < 6; j++) {
-				*((float *)buffer) = setpoint[j] * 0.0254;;
+				*((float *)buffer) = setpoint[j] * 0.0254;
+				*((float *)buffer + 1) = force[j];
 				sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[j], sizeof(client[j]));
 			}
 
@@ -189,11 +198,14 @@ LOOP:
 			i++;
 		}
         }
+	#if FORCE_FROM_FILE
+	fseek (file, ((loopStart * 12) + 4) * sizeof(float), SEEK_SET);
+	#else
 	fseek (file, ((loopStart * 6) + 4) * sizeof(float), SEEK_SET);
+	#endif
 	gettimeofday (&startTime, NULL);
 	loopTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 	i = loopStart;
-	progTime = timeStep;
 	goto LOOP;
 
 shutdown:
