@@ -117,7 +117,7 @@ int main (int argc, char **argv)
         double curTime;
         double startTime;
         double loopTime;
-	double progTimei
+	double progTime;
 
 	float temp;
 	int i, j;
