@@ -169,6 +169,10 @@ int main (int argc, char **argv)
 
 	float mg = 125.0; //N
 
+	int ctrlvalve_last_sign = 0;
+	double ctrlvalve_last_flop = 0.0;
+	float ctrlvalve_min_period = 0.333333;
+
 	char buffer[8];
 	int sock;
 
@@ -240,6 +244,8 @@ int main (int argc, char **argv)
 		float last_n20;
 
 		float inchpoint;
+
+		int ctrlvalve_sign;
 
 		int out1;
 		int out2;
@@ -339,9 +345,27 @@ int main (int argc, char **argv)
 		out2 = (int)((x5 + x6) * 5.0);
 		out1 = (int)(fabs(x5) * 5.0) * ((out2 < 0) ? -1 : 1);
 
+		if (out2 < 0) {
+			ctrlvalve_sign = -1;
+		} else if (out2 > 0) {
+			ctrlvalve_sign = 1;
+		} else {
+			ctrlvalve_sign = 0;
+		}
 
+		if (ctrlvalve_sign != ctrlvalve_last_sign && (curTime - ctrlvalve_last_flop) > ctrlvalve_min_period)
+			goto ctrl1;
+		else if (ctrlvalve_sign == ctrlvalve_last_sign)
+			goto ctrl2;
+		goto ctrl3;
+	ctrl1:
+		ctrlvalve_last_flop = curTime;
+	ctrl2:
 		pruDataMem1_int[1] = out1;
 		pruDataMem1_int[0] = out2;
+		ctrlvalve_last_sign = ctrlvalve_sign;
+	ctrl3:
+		;
 
 		//printf ("%f\n", (x1 + x0 - setpoint) / 0.0254);
                 //fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x0, x1 + x0, x2, x3 + n10, x4 + n20, x5, x6, u1, u2);
