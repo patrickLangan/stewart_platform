@@ -6,7 +6,7 @@
 #define CONST_PRUDRAM C24
 #define CTBIR_1 0x22024
 
-#define OVER_STEPS 10
+#define OVER_STEPS 15
 #define STP_TIME 200000
 
 .macro WAIT
@@ -61,6 +61,8 @@ IN:
 	QBNE OUT, r7, 0 //Don't change ctrl dir if either valve is not yet closed
 
 	//Over tighten the valves
+	CLR r30, r30, 4
+	CLR r30, r30, 5
 	MOV r8, OVER_STEPS
 SUBLOOP:
 	SUB r8, r8, 1
