@@ -6,7 +6,7 @@
 #define CONST_PRUDRAM C24
 #define CTBIR_1 0x22024
 
-#define OVER_STEPS 20
+#define OVER_STEPS 10
 #define STP_TIME 200000
 
 .macro WAIT
@@ -35,7 +35,6 @@ START:
 	MOV r0, 0 //Stepper 1 pos
 	MOV r1, 0 //Stepper 2 pos
 	MOV r2, 1 //Ctrl valve dir
-	MOV r8, 0 //All valves recently closed flag
 LOOP1:
 	LBCO r3, CONST_PRUDRAM, 0, 4 //Set pos stper 1
 	LBCO r4, CONST_PRUDRAM, 4, 4 //Set pos stper 2
@@ -59,7 +58,17 @@ IN:
 	MOV r3, 0
 	MOV r4, 0
 	OR r7, r0, r1
-	QBNE OUT, r7, 0
+	QBNE OUT, r7, 0 //Don't change ctrl dir if either valve is not yet closed
+
+	//Over tighten the valves
+	MOV r8, OVER_STEPS
+SUBLOOP:
+	SUB r8, r8, 1
+	SET r30, r30, 2
+	SET r30, r30, 3
+	XOR r30, r30, 3 //Toggles pins 1 and 2
+	WAIT r3, STP_TIME
+	QBLE SUBLOOP, r8, 1
 
 	//Change ctrl dir
 	MOV r2, r6
@@ -67,18 +76,14 @@ IN:
 	QBEQ RTRACT, r6, 0
 	CLR r30, r30, 4
 	CLR r30, r30, 5
-	QBNE OUT, r8, 0
-	MOV r8, OVER_STEPS //Sets "closed" flag
 	JMP OUT
 EXTEND:
 	SET r30, r30, 4
 	CLR r30, r30, 5
-	MOV r8, 0 //Clears "closed" flag
 	JMP OUT
 RTRACT:
 	CLR r30, r30, 4
 	SET r30, r30, 5
-	MOV r8, 0 //Clears "closed" flag
 OUT:
 
 	//Step motors
@@ -104,14 +109,6 @@ POS_DR2:
 STP2:
 	XOR r30, r30, 1 << 1
 OUT2:
-
-	//Overtighten valves if just closed
-	QBGE OUT3, r8, 1
-	SUB r8, r8, 1
-	SET r30, r30, 2
-	SET r30, r30, 3
-	XOR r30, r30, 3 //Toggles pins 1 and 2
-OUT3:
 
 	WAIT r3, STP_TIME
 	JMP LOOP1
