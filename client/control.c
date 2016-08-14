@@ -136,7 +136,7 @@ int main (int argc, char **argv)
 	float A1 = 0.0020268299; //m^2
 	float A2 = 0.0017418070; //m^2
 	float L = 0.762; //m
-	float m = 24.5433; //kg
+	float m = 15.6881; //kg
 
 	float c1 = -5.0953e-06;
 	float c2 = 0.0028189;
@@ -156,14 +156,13 @@ int main (int argc, char **argv)
 	float x5 = 0.0;
 	float x6 = 0.0;
 
-	float u1 = 0.0;
-	float u2 = 0.0;
+	float w1 = 0.0;
+	float w2 = 0.0;
 
-	float x0; //m
-	float v0; //m/s
-	float P10; //kPa
-	float n10; //mol
-	float n20; //mol
+	float x10; //m
+	float P10; //Pa
+	float x30; //mol
+	float x40; //mol
 
 	float inchworm = 0.1016; //m
 
@@ -211,24 +210,21 @@ int main (int argc, char **argv)
 
 	sock = udpInit(1681);
 
-	x0 = setpoint;
-	v0 = 0.0;
+	x10 = setpoint;
 	P10 = Ps * 0.8;
-	n10 = P10 * A1 * x0 / (R * T);
-	n20 = (P10 * A1 - P0 * (A1 - A2) - mg) * (L - x0) / (R * T);
+	x30 = P10 * A1 * x10 / (R * T);
+	x40 = (P10 * A1 - P0 * (A1 - A2) - mg) * (L - x10) / (R * T);
 
 	temp = pruDataMem0_int[0];
-	x1 = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE - x0;
+	x1 = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE - x10;
 
 	gettimeofday (&curTimeval, NULL);
 	curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 	startTime = curTime;
 
-/*
 	sprintf (fileName, "%d.csv", (int)startTime);
         file = fopen (fileName, "w");
-	fprintf (file, "time, x0, x, v, n1, n2, x5, x6, u1, u2\n");
-*/
+	fprintf (file, "time, x10, x, v, n1, n2, x5, x6, w1, w2\n");
 
 	//Gain scheduling controller
 	while (1) {
@@ -239,9 +235,9 @@ int main (int argc, char **argv)
 		float delta_t;
 		float lastX1;
 
-		float last_x0;
-		float last_n10;
-		float last_n20;
+		float last_x10;
+		float last_x30;
+		float last_x40;
 
 		float inchpoint;
 
@@ -271,48 +267,48 @@ int main (int argc, char **argv)
 		length = (float)(temp - LENGTH_ZERO) * LENGTH_SCALE;
 
                 lastX1 = x1;
-                x1 = length - x0;
+                x1 = length - x10;
                 x2 = (x1 - lastX1) / delta_t;
-                x3 = pressure2 * 6894.76 * (x1 + x0) * A1 / (R * T) - n10;
-                x4 = pressure1 * 6894.76 * (L - x1 - x0) * A2 / (R * T) - n20;
-		x5 += u1 * delta_t;
-		x6 += u2 * delta_t;
+                x3 = pressure2 * 6894.76 * (x1 + x10) * A1 / (R * T) - x30;
+                x4 = pressure1 * 6894.76 * (L - x1 - x10) * A2 / (R * T) - x40;
+		x5 += w1 * delta_t;
+		x6 += (w1 + w2) * delta_t;
 
-		if (x1 + x0 > L)
-			x1 = L - x0;
-		else if (x1 + x0 < 0)
-			x1 = -x0;
+		if (x1 + x10 > L)
+			x1 = L - x10;
+		else if (x1 + x10 < 0)
+			x1 = -x10;
 
 		if (x5 > valve_trvmax)
 			x5 = valve_trvmax;
 		else if (x5 < -valve_trvmax)
 			x5 = -valve_trvmax;
 
-		if (x5 + x6 > valve_trvmax)
-			x6 = valve_trvmax - x5;
-		else if (x5 + x6 < -valve_trvmax)
-			x6 = -valve_trvmax - x5;
+		if (x6 > valve_trvmax)
+			x6 = valve_trvmax;
+		else if (x6 < -valve_trvmax)
+			x6 = -valve_trvmax;
 
 		inchpoint = setpoint;
-		if (setpoint - x1 - x0 > inchworm)
-			inchpoint = inchworm + x1 + x0;
-		else if (x1 + x0 - setpoint > inchworm)
-			inchpoint = x1 + x0 - inchworm;
+		if (setpoint - x1 - x10 > inchworm)
+			inchpoint = inchworm + x1 + x10;
+		else if (x1 + x10 - setpoint > inchworm)
+			inchpoint = x1 + x10 - inchworm;
 
-		last_x0 = x0;
-		last_n10 = n10;
-		last_n20 = n20;
+		last_x10 = x10;
+		last_x30 = x30;
+		last_x40 = x40;
 
-		x0 = inchpoint;
-		n10 = P10 * A1 * x0 / (R * T);
-		n20 = (P10 * A1 - P0 * (A1 - A2) - mg) * (L - x0) / (R * T);
+		x10 = inchpoint;
+		x30 = P10 * A1 * x10 / (R * T);
+		x40 = (P10 * A1 - P0 * (A1 - A2) - mg) * (L - x10) / (R * T);
 
-		x1 = x1 + last_x0 - x0;
-		x3 = x3 + last_n10 - n10;
-		x4 = x4 + last_n20 - n20;
-		lastX1 = lastX1 + last_x0 - x0;
+		x1 = x1 + last_x10 - x10;
+		x3 = x3 + last_x30 - x30;
+		x4 = x4 + last_x40 - x40;
+		lastX1 = lastX1 + last_x10 - x10;
 
-                findex = x0 / L * 99.0;
+                findex = x10 / L * 99.0;
                 i = (int)findex * 12;
                 j = i + 12;
 		kslope = findex - (float)(i / 12);
@@ -329,20 +325,20 @@ int main (int argc, char **argv)
 		K[1][4] = (Ks[j + 10] - Ks[i + 10]) * kslope + Ks[i + 10];
 		K[1][5] = (Ks[j + 11] - Ks[i + 11]) * kslope + Ks[i + 11];
 
-		u1 = -K[0][0] * x1 - K[0][1] * x2 - K[0][2] * x3 - K[0][3] * x4 - K[0][4] * x5 - K[0][5] * x6;
-		u2 = -K[1][0] * x1 - K[1][1] * x2 - K[1][2] * x3 - K[1][3] * x4 - K[1][4] * x5 - K[1][5] * x6;
+		w1 = -K[0][0] * x1 - K[0][1] * x2 - K[0][2] * x3 - K[0][3] * x4 - K[0][4] * x5 - K[0][5] * x6;
+		w2 = -K[1][0] * x1 - K[1][1] * x2 - K[1][2] * x3 - K[1][3] * x4 - K[1][4] * x5 - K[1][5] * x6;
 
-		if (u1 > valve_velmax)
-			u1 = valve_velmax;
-		else if (u1 < -valve_velmax)
-			u1 = -valve_velmax;
+		if (w1 > valve_velmax)
+			w1 = valve_velmax;
+		else if (w1 < -valve_velmax)
+			w1 = -valve_velmax;
 
-		if (u1 + u2 > valve_velmax)
-			u2 = valve_velmax - u1;
-		else if (u1 + u2 < -valve_velmax)
-			u2 = -valve_velmax - u1;
+		if (w1 + w2 > valve_velmax)
+			w2 = valve_velmax - w1;
+		else if (w1 + w2 < -valve_velmax)
+			w2 = -valve_velmax - w1;
 
-		out2 = (int)((x5 + x6) * 5.0);
+		out2 = (int)(x6 * 5.0);
 		out1 = (int)(fabs(x5) * 5.0) * ((out2 < 0) ? -1 : 1);
 
 		if (out2 < 0) {
@@ -367,8 +363,7 @@ int main (int argc, char **argv)
 	ctrl3:
 		;
 
-		//printf ("%f\n", (x1 + x0 - setpoint) / 0.0254);
-                //fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x0, x1 + x0, x2, x3 + n10, x4 + n20, x5, x6, u1, u2);
+                fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x10, x1 + x10, x2, x3 + x30, x4 + x40, x5, x6, w1, w2);
         }
 
 shutdown:
@@ -379,7 +374,7 @@ shutdown:
 
         pruTerminate ();
 
-	//fclose (file);
+	fclose (file);
 
 	i2c_close (pressHandle1);
 	i2c_close (pressHandle2);
