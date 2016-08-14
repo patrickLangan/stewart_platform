@@ -209,7 +209,7 @@ int main (int argc, char **argv)
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
 
-	sock = udpInit(1682);
+	sock = udpInit(1681);
 
 	x10 = setpoint;
 	P10 = Ps * 0.8;
