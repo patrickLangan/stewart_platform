@@ -292,6 +292,7 @@ int main (int argc, char **argv)
 			x6 = -valve_trvmax;
 
 		inchpoint = setpoint;
+/*
 		if (setpoint - x1 - x10 > inchworm)
 			inchpoint = inchworm + x1 + x10;
 		else if (x1 + x10 - setpoint > inchworm)
@@ -309,6 +310,7 @@ int main (int argc, char **argv)
 		x3 = x3 + last_x30 - x30;
 		x4 = x4 + last_x40 - x40;
 		lastX1 = lastX1 + last_x10 - x10;
+*/
 
                 findex = x10 / L * 99.0;
                 i = (int)findex * 12;
