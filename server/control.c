@@ -99,7 +99,7 @@ int main (int argc, char **argv)
         struct sockaddr_in client[6] = {
 		{.sin_family = AF_INET}
 	};
-        char buffer[8];
+        char buffer[12];
         int sock;
 
 	char addrStr[16];
@@ -120,6 +120,7 @@ int main (int argc, char **argv)
         double startTime;
         double loopTime;
 	double progTime;
+        double constStartTime;
 
 	float temp;
 	int i, j;
@@ -167,6 +168,7 @@ int main (int argc, char **argv)
 	gettimeofday (&curTimeval, NULL);
         curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
         startTime = curTime;
+        constStartTime = curTime;
 	loopTime = curTime;
 
 LOOP:
@@ -188,10 +190,11 @@ LOOP:
 				printf ("%f, ", setpoint[j]);
 			printf ("%f\n", setpoint[5]);
 
+			*((float *)buffer + 2) = (float)(curTime - constStartTime);
 			for (j = 0; j < 6; j++) {
 				*((float *)buffer) = setpoint[j] * 0.0254;
 				*((float *)buffer + 1) = force[j];
-				sendto (sock, buffer, 8, 0, (struct sockaddr *)&client[j], sizeof(client[j]));
+				sendto (sock, buffer, 12, 0, (struct sockaddr *)&client[j], sizeof(client[j]));
 			}
 
 			progTime += timeStep;

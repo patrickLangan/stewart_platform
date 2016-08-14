@@ -120,6 +120,7 @@ int main (int argc, char **argv)
 	struct timeval curTimeval;
 	double curTime = 0.0;
 	double startTime;
+	float server_time = 0.0;
 
 	float g = 9.81; //m/s^2
 	float R = 8.314; //j/(K*mol)
@@ -172,7 +173,7 @@ int main (int argc, char **argv)
 	double ctrlvalve_last_flop = 0.0;
 	float ctrlvalve_min_period = 0.333333;
 
-	char buffer[8];
+	char buffer[12];
 	int sock;
 
         int temp;
@@ -224,7 +225,7 @@ int main (int argc, char **argv)
 
 	sprintf (fileName, "%d.csv", (int)startTime);
         file = fopen (fileName, "w");
-	fprintf (file, "time, x10, x, v, n1, n2, x5, x6, w1, w2\n");
+	fprintf (file, "server_time, client_time, x10, x, v, n1, n2, x5, x6, w1, w2\n");
 
 	//Gain scheduling controller
 	while (1) {
@@ -253,9 +254,10 @@ int main (int argc, char **argv)
                 curTime = (double)curTimeval.tv_sec + (double)curTimeval.tv_usec / 1e6;
 		delta_t = curTime - lastTime;
 
-		if (recv(sock, buffer, 8, 0) == 8) {
+		if (recv(sock, buffer, 12, 0) == 12) {
 			setpoint = *((float *)buffer);
 			mg = *((float *)buffer + 1);
+			server_time = *((float *)buffer + 2);
 		}
 
                 temp = i2cRead (pressHandle1);
@@ -363,7 +365,7 @@ int main (int argc, char **argv)
 	ctrl3:
 		;
 
-                fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", curTime - startTime, x10, x1 + x10, x2, x3 + x30, x4 + x40, x5, x6, w1, w2);
+                fprintf (file, "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", server_time, curTime - startTime, x10, x1 + x10, x2, x3 + x30, x4 + x40, x5, x6, w1, w2);
         }
 
 shutdown:
