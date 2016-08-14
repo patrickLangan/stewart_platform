@@ -209,7 +209,7 @@ int main (int argc, char **argv)
         pressHandle1 = i2c_open (1, 0x28);
         pressHandle2 = i2c_open (2, 0x28);
 
-	sock = udpInit(1681);
+	sock = udpInit(1682);
 
 	x10 = setpoint;
 	P10 = Ps * 0.8;
@@ -297,6 +297,7 @@ int main (int argc, char **argv)
 			inchpoint = inchworm + x1 + x10;
 		else if (x1 + x10 - setpoint > inchworm)
 			inchpoint = x1 + x10 - inchworm;
+*/
 
 		last_x10 = x10;
 		last_x30 = x30;
@@ -310,7 +311,6 @@ int main (int argc, char **argv)
 		x3 = x3 + last_x30 - x30;
 		x4 = x4 + last_x40 - x40;
 		lastX1 = lastX1 + last_x10 - x10;
-*/
 
                 findex = x10 / L * 99.0;
                 i = (int)findex * 12;
