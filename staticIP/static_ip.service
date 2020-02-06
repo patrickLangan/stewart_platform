@@ -1,8 +1,0 @@
-[Unit]
-Description=Set static IP address
-
-[Service]
-ExecStart=/usr/local/bin/static_ip
-
-[Install]
-WantedBy=multi-user.target

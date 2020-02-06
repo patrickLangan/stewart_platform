@@ -1,0 +1,5 @@
+Install Teensyduino:
+https://www.pjrc.com/teensy/td_download.html
+
+Copy files from $(ARDUINOPATH)/hardware/teensy/avr/libraries/SPI into this folder
+

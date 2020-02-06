@@ -1,0 +1,5 @@
+Install Teensyduino:
+https://www.pjrc.com/teensy/td_download.html
+
+cp $(ARDUINOPATH)/hardware/tools/teensy* .
+
