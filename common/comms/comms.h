@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "common.h"
+
 #define BAUD_ 115200
 
 #define SIZE_STATE 27
@@ -11,15 +13,6 @@
 #define SIZE_CMD_FULL 27
 
 #define START_BYTE 0xE
-
-struct board_state_ {
-	float pressure[4];
-	float length[2];
-};
-
-struct board_cmd_ {
-	float length[2];
-};
 
 uint16_t crc16(uint8_t *buff, int n);
 
