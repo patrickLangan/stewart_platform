@@ -11,8 +11,6 @@
 #include "util.h"
 #include "comms_UART.h"
 
-#define COMMS_PERIOD 20000
-
 enum type_ {
 	TYPE_INT,
 	TYPE_FLOAT
@@ -42,6 +40,7 @@ struct cyl_ {
 
 struct thread_data_ {
 	struct cyl_ cyl_cmd[6];
+	uint8_t cmd_mode;
 	int curs_x, curs_y;
 	pthread_mutex_t mutex;
 };
@@ -61,12 +60,12 @@ void pack_board_cmd(struct cyl_ *cyl, struct board_cmd_ *bcmd)
 
 	for (i = 0; i < 6; i++) {
 		bcmd[box].length[j] = cyl[i].length;
+		bcmd[box].valve[j * 2 + 0] = cyl[i].valve1;
+		bcmd[box].valve[j * 2 + 1] = cyl[i].valve2;
+		bcmd[box].DCV[j] = cyl[i].DCV;
 		j = !j;
 		if (!j)
 			box++;
-		//valve1
-		//valve2
-		//DCV
 	}
 }
 
@@ -80,25 +79,25 @@ void unpack_board_state(struct cyl_ *cyl, struct board_state_ *bstate)
 		cyl[i].length = bstate[box].length[j];
 		cyl[i].press1 = bstate[box].pressure[j * 2 + 0];
 		cyl[i].press2 = bstate[box].pressure[j * 2 + 1];
-		cyl[i].valve1 = 0;
-		cyl[i].valve2 = 0;
-		cyl[i].DCV = 0;
+		cyl[i].valve1 = bstate[box].valve[j * 2 + 0];
+		cyl[i].valve2 = bstate[box].valve[j * 2 + 1];
+		cyl[i].DCV = bstate[box].DCV[j];
 		j = !j;
 		if (!j)
 			box++;
 	}
 }
 
-void print_DCV(int y, int x, int pos)
+void print_DCV(int y, int x, enum DCV_pos_ pos)
 {
 	switch (pos) {
-	case -1:
+	case DCV_RETRACT:
 		mvprintw(y, x, "  RET");
 		break;
-	case 0:
+	case DCV_CLOSE:
 		mvprintw(y, x, "CLOSE");
 		break;
-	case 1:
+	case DCV_EXTEND:
 		mvprintw(y, x, "  EXT");
 	}
 }
@@ -110,8 +109,8 @@ void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_
 	mvprintw(y + 2, x + 0, "%6.2f %6.2f", cyl_cmd[index].length, cyl[index].length);
 	mvprintw(y + 3, x + 0, "       %6.2f", cyl[index].press2 * PA_TO_PSI);
 	mvprintw(y + 4, x + 0, "       %6.2f", cyl[index].press1 * PA_TO_PSI);
-	mvprintw(y + 5, x + 0, "%5.1f  %5.1f", cyl_cmd[index].valve2 * 0.2, cyl[index].valve2 * 0.2);
-	mvprintw(y + 6, x + 0, "%5.1f  %5.1f", cyl_cmd[index].valve1 * 0.2, cyl[index].valve1 * 0.2);
+	mvprintw(y + 5, x + 0, "%5.1f  %5.1f", cyl_cmd[index].valve2 * STP_TO_PERCENT, cyl[index].valve2 * STP_TO_PERCENT);
+	mvprintw(y + 6, x + 0, "%5.1f  %5.1f", cyl_cmd[index].valve1 * STP_TO_PERCENT, cyl[index].valve1 * STP_TO_PERCENT);
 	print_DCV(y + 7, x + 0, cyl_cmd[index].DCV);
 	print_DCV(y + 7, x + 7, cyl[index].DCV);
 }
@@ -148,17 +147,17 @@ void *input_thread(void *data)
 		cmd[i][0].type = TYPE_FLOAT;
 		cmd[i][1].target = &thread_data->cyl_cmd[i].valve2;
 		cmd[i][1].min.i = 0;
-		cmd[i][1].max.i = 500;
+		cmd[i][1].max.i = STP_MAX;
 		cmd[i][1].inc.i = 5;
 		cmd[i][1].type = TYPE_INT;
 		cmd[i][2].target = &thread_data->cyl_cmd[i].valve1;
 		cmd[i][2].min.i = 0;
-		cmd[i][2].max.i = 500;
+		cmd[i][2].max.i = STP_MAX;
 		cmd[i][2].inc.i = 5;
 		cmd[i][2].type = TYPE_INT;
 		cmd[i][3].target = &thread_data->cyl_cmd[i].DCV;
-		cmd[i][3].min.i = -1;
-		cmd[i][3].max.i = 1;
+		cmd[i][3].min.i = DCV_RETRACT;
+		cmd[i][3].max.i = DCV_EXTEND;
 		cmd[i][3].inc.i = 1;
 		cmd[i][3].type = TYPE_INT;
 	}
@@ -170,6 +169,7 @@ void *input_thread(void *data)
 
 	while (1) {
 		int c;
+		int key_updown = 0;
 
 		c = getch();
 		switch (c) {
@@ -203,40 +203,43 @@ void *input_thread(void *data)
 			break;
 		case 'k':
 		case KEY_UP:
-			pthread_mutex_lock(&thread_data->mutex);
-			if (edit) {
-				if (curs_cyl < 6)
-					cmd_adj(cmd[curs_cyl][curs_mode], 1);
-				else
-					for (i = 0; i < 6; i++)
-						cmd_adj(cmd[i][curs_mode], 1);
-			} else {
+			key_updown = 1;
+			if (!edit) {
 				if (curs_mode > 0)
 					curs_mode--;
 				else
 					curs_mode = 3;
-				thread_data->curs_y = curs_offy[curs_mode];
 			}
-			pthread_mutex_unlock(&thread_data->mutex);
 			break;
 		case 'j':
 		case KEY_DOWN:
-			pthread_mutex_lock(&thread_data->mutex);
-			if (edit) {
-				if (curs_cyl < 6)
-					cmd_adj(cmd[curs_cyl][curs_mode], -1);
-				else
-					for (i = 0; i < 6; i++)
-						cmd_adj(cmd[i][curs_mode], -1);
-			} else {
+			key_updown = -1;
+			if (!edit) {
 				if (curs_mode < 3)
 					curs_mode++;
 				else
 					curs_mode = 0;
+			}
+		}
+
+		if (key_updown) {
+			pthread_mutex_lock(&thread_data->mutex);
+
+			if (edit) {
+				if (curs_cyl < 6)
+					cmd_adj(cmd[curs_cyl][curs_mode], key_updown);
+				else
+					for (i = 0; i < 6; i++)
+						cmd_adj(cmd[i][curs_mode], key_updown);
+				if (!curs_mode)
+					thread_data->cmd_mode = CMD_LENGTH;
+				else
+					thread_data->cmd_mode = CMD_VALVE;
+			} else {
 				thread_data->curs_y = curs_offy[curs_mode];
 			}
+
 			pthread_mutex_unlock(&thread_data->mutex);
-			break;
 		}
 	}
 }
@@ -247,6 +250,7 @@ int main(void)
 	struct board_cmd_ bcmd[3];
 	struct board_state_ bstate[3];
 	struct thread_data_ thread_data;
+	uint8_t cmd_mode;
 	pthread_t input_thread_;
 	int got_startb = 0;
 	WINDOW *win;
@@ -284,15 +288,19 @@ int main(void)
 	noecho();
 
 	while (1) {
+		while (!comms_UART_recv_state(bstate, &got_startb))
+			;
+		while (comms_UART_recv_state(bstate, &got_startb))
+			;
+		unpack_board_state(cyl, bstate);
+
 		pthread_mutex_lock(&thread_data.mutex);
 		pack_board_cmd(thread_data.cyl_cmd, bcmd);
+		cmd_mode = thread_data.cmd_mode;
 		pthread_mutex_unlock(&thread_data.mutex);
-		comms_UART_send_cmd(bcmd);
+		comms_UART_send_cmd(bcmd, cmd_mode);
 
-		usleep(COMMS_PERIOD);
-
-		comms_UART_recv_state(bstate, &got_startb);
-		unpack_board_state(cyl, bstate);
+		clear();
 
 		mvprintw(2, 0, "    length (in) 10");
 		mvprintw(3, 0, "  p-upper (psi)");

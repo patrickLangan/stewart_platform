@@ -33,6 +33,26 @@ const float length_offset[2] = {-12.20, -12.30};
 
 const int pressure_channel[4] = {3, 2, 1, 0};
 
+void pack_valve_state(struct valve_state_ *valve_state, struct board_state_ *bstate)
+{
+	bstate->valve[0] = valve_state[0].pos1;
+	bstate->valve[1] = valve_state[0].pos2;
+	bstate->valve[2] = valve_state[1].pos1;
+	bstate->valve[3] = valve_state[1].pos2;
+	bstate->DCV[0] = valve_state[0].DCV_pos;
+	bstate->DCV[1] = valve_state[1].DCV_pos;
+}
+
+void unpack_valve_cmd(struct valve_state_ *valve_state, struct board_cmd_ *bcmd)
+{
+	valve_state[0].cmd1 = bcmd->valve[0];
+	valve_state[0].cmd2 = bcmd->valve[1];
+	valve_state[1].cmd1 = bcmd->valve[2];
+	valve_state[1].cmd2 = bcmd->valve[3];
+	valve_state[0].DCV_cmd = bcmd->DCV[0];
+	valve_state[1].DCV_cmd = bcmd->DCV[1];
+}
+
 static int pressure_read(int channel, float *val)
 {
 	const float pressure_scale = 63.1272415218;
@@ -87,7 +107,7 @@ void length_advance(float *length)
 	i = !i;
 }
 
-void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd)
+void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, struct valve_state_ *valve_state, uint8_t *cmd_mode)
 {
 	static uint32_t timer = COMMS_PSHIFT;
 #if BOARD == TEENSY1
@@ -102,21 +122,27 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd)
 	switch (state) {
 	default:
 	case 0:
-		comms_UART_recv_cmd(bcmd, &got_startb0);
+		while (!comms_UART_recv_cmd(bcmd, &got_startb0, cmd_mode))
+			;
+		if (*cmd_mode == CMD_VALVE)
+			unpack_valve_cmd(valve_state, &bcmd[0]);
 		state++;
 		break;
 	case 1:
+		pack_valve_state(valve_state, &bstate[0]);
 		comms_UART_send_state(bstate);
 		state++;
 		break;
 	case 2:
-		comms_485_send(1, &bcmd[1]);
-		comms_485_recv(2, &bstate[2], &got_startb2);
+		comms_485_send(1, &bcmd[1], *cmd_mode);
+		while (!comms_485_recv(2, &bstate[2], &got_startb2))
+			;
 		state++;
 		break;
 	case 3:
-		comms_485_send(2, &bcmd[2]);
-		comms_485_recv(1, &bstate[1], &got_startb1);
+		comms_485_send(2, &bcmd[2], *cmd_mode);
+		while (!comms_485_recv(1, &bstate[1], &got_startb1))
+			;
 		state = 0;
 	}
 #else
@@ -125,7 +151,11 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd)
 	if (limit_frequency_us(micros(), &timer, COMMS_SLAVE_PERIOD))
 		return;
 
-	comms_485_slave(&bstate[BOARD], &bcmd[BOARD], &got_startb);
+	if (!comms_485_slave(&bstate[BOARD], &bcmd[BOARD], &got_startb, cmd_mode)) {
+		if (*cmd_mode)
+			unpack_valve_cmd(valve_state, &bcmd[BOARD]);
+		pack_valve_state(valve_state, &bstate[BOARD]);
+	}
 #endif
 }
 
@@ -134,6 +164,7 @@ int main(void)
 	struct board_state_ bstate[3];
 	struct board_cmd_ bcmd[3];
 	struct valve_state_ valve_state[2];
+	uint8_t cmd_mode;
 
 	memset(bstate, 0, 3 * sizeof(*bstate));
 	memset(bcmd, 0, 3 * sizeof(*bcmd));
@@ -148,13 +179,32 @@ int main(void)
 	//valve_coldstart();
 
 	while (1) {
-		comms_advance(bstate, bcmd);
+		comms_advance(bstate, bcmd, valve_state, &cmd_mode);
 
 		pressure_advance(bstate[BOARD].pressure);
 		length_advance(bstate[BOARD].length);
 
-		valve_cmd(0, &valve_state[0], bcmd[BOARD].length[0], bcmd[BOARD].length[0]);
-		valve_cmd(1, &valve_state[1], bcmd[BOARD].length[1], bcmd[BOARD].length[1]);
+		switch (cmd_mode) {
+		case CMD_LENGTH:
+#if 0
+			valve_control_input(0, &valve_state[0], u1_1, u2_1);
+			valve_control_input(1, &valve_state[1], u1_2, u2_2);
+#endif
+			DCV_switch(0, DCV_CLOSE);
+			valve_state[0].DCV_pos = DCV_CLOSE;
+			DCV_switch(1, DCV_CLOSE);
+			valve_state[1].DCV_pos = DCV_CLOSE;
+			break;
+		case CMD_VALVE:
+			valve_state[0].pos1 = valve_step(0, valve_state[0].cmd1, valve_state[0].pos1, &valve_state[0].stp1, &valve_state[0].over1);
+			valve_state[0].pos2 = valve_step(1, valve_state[0].cmd2, valve_state[0].pos2, &valve_state[0].stp2, &valve_state[0].over2);
+			valve_state[1].pos1 = valve_step(2, valve_state[1].cmd1, valve_state[1].pos1, &valve_state[1].stp1, &valve_state[1].over1);
+			valve_state[1].pos2 = valve_step(3, valve_state[1].cmd2, valve_state[1].pos2, &valve_state[1].stp2, &valve_state[1].over2);
+			DCV_switch(0, valve_state[0].DCV_cmd);
+			valve_state[0].DCV_pos = valve_state[0].DCV_cmd;
+			DCV_switch(1, valve_state[1].DCV_cmd);
+			valve_state[1].DCV_pos = valve_state[1].DCV_cmd;
+		}
 	}
 
 	return 0;

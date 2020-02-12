@@ -10,3 +10,5 @@ config-pin P9_22 uart
 config-pin P9_11 uart
 config-pin P9_13 uart
 
+stty -F /dev/ttyO4 115200 raw
+

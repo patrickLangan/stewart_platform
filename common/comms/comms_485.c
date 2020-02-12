@@ -25,7 +25,7 @@ void comms_485_init(void)
 #endif
 }
 
-int comms_485_send(int index, struct board_cmd_ *board_cmd)
+int comms_485_send(int index, struct board_cmd_ *board_cmd, uint8_t cmd_mode)
 {
 	uint8_t buff[SIZE_CMD] = {0};
 
@@ -34,13 +34,13 @@ int comms_485_send(int index, struct board_cmd_ *board_cmd)
 	case 1:
 		if (!serial3_write_buffer_free())
 			return 1;
-		pack_cmd(buff, board_cmd);
+		pack_cmd(buff, board_cmd, cmd_mode);
 		serial3_write(buff, SIZE_CMD);
 		break;
 	case 2:
 		if (!serial5_write_buffer_free())
 			return 1;
-		pack_cmd(buff, board_cmd);
+		pack_cmd(buff, board_cmd, cmd_mode);
 		serial5_write(buff, SIZE_CMD);
 	}
 
@@ -67,7 +67,7 @@ int comms_485_recv(int index, struct board_state_ *board_state, int *got_startb)
 	return 0;
 }
 
-int comms_485_slave(struct board_state_ *board_state, struct board_cmd_ *board_cmd, int *got_startb)
+int comms_485_slave(struct board_state_ *board_state, struct board_cmd_ *board_cmd, int *got_startb, uint8_t *cmd_mode)
 {
 	uint8_t buff_tx[SIZE_STATE] = {0};
 	uint8_t buff_rx[SIZE_CMD] = {0};
@@ -78,12 +78,11 @@ int comms_485_slave(struct board_state_ *board_state, struct board_cmd_ *board_c
 	if (get_packet(buff_rx, got_startb, serial3_getchar, serial3_available(), SIZE_CMD))
 		return 1;
 
-	unpack_cmd(buff_rx, board_cmd);
+	unpack_cmd(buff_rx, board_cmd, cmd_mode);
 
 	if (serial3_write_buffer_free()) {
 		pack_state(buff_tx, board_state);
 		serial3_write(buff_tx, SIZE_STATE);
-		serial3_flush();
 	}
 
 	return 0;

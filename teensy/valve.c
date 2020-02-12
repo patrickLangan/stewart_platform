@@ -5,8 +5,6 @@
 #include "WProgram.h"
 #include "pins_arduino.h"
 
-#define STP_MAX 500
-
 /*
  * Over-tighten the valves by this amount whenever closed (accounts for skipped
  * steps, if that's even a problem with this system)
@@ -56,7 +54,7 @@ void valve_coldstart(void)
 		digitalWriteFast(pin_DIR[j], 0);
 }
 
-static void DCV_switch(int index, enum DCV_dir_ dir)
+void DCV_switch(int index, enum DCV_pos_ dir)
 {
 	int SSR1, SSR2;
 
@@ -79,7 +77,7 @@ static void DCV_switch(int index, enum DCV_dir_ dir)
 	}
 }
 
-static int valve_step(int index, int cmd, int pos, int *stp, int *over)
+int valve_step(int index, int cmd, int pos, int *stp, int *over)
 {
 	if (pos != cmd) {
 		int overtravel = 0;
@@ -111,10 +109,10 @@ static int valve_step(int index, int cmd, int pos, int *stp, int *over)
 	return pos;
 }
 
-void valve_cmd(int index, struct valve_state_ *state, float travel1, float travel2)
+void valve_control_input(int index, struct valve_state_ *state, float u1, float u2)
 {
 	int cmd1, cmd2;
-	enum DCV_dir_ DCV_cmd;
+	enum DCV_pos_ DCV_cmd;
 	uint32_t time;
 
 	time = micros();
@@ -122,8 +120,8 @@ void valve_cmd(int index, struct valve_state_ *state, float travel1, float trave
 	if (limit_frequency_us(time, &state->stp_timer, STP_PERIOD_2))
 		return;
 
-	cmd1 = (int)round(travel1 * 10.0); /* 10 half-steps per percent */
-	cmd2 = (int)round(travel2 * 10.0);
+	cmd1 = (int)round(u1 * 10.0); /* 10 half-steps per percent */
+	cmd2 = (int)round(u2 * 10.0);
 
 	/*
 	 * Address shared sign (the DCV) between valve1 and valve2

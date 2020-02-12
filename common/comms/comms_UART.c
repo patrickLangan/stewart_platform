@@ -32,7 +32,7 @@ static int set_interface_attribs(int fd, int speed, int parity, int should_block
 	struct termios tty;
 
 	if (tcgetattr(fd, &tty)) {
-		fprintf(stderr, "tcgetattr() failed.");
+		fprintf(stderr, "tcgetattr() failed.\n");
 		return 1;
 	}
 
@@ -53,7 +53,7 @@ static int set_interface_attribs(int fd, int speed, int parity, int should_block
 	tty.c_cflag &= ~CRTSCTS;
 
 	if (tcsetattr(fd, TCSANOW, &tty)) {
-		fprintf(stderr, "tcsetattr() failed.");
+		fprintf(stderr, "tcsetattr() failed.\n");
 		return 1;
 	}
 
@@ -61,11 +61,16 @@ static int set_interface_attribs(int fd, int speed, int parity, int should_block
 }
 #endif
 
-void comms_UART_init(void)
+int comms_UART_init(void)
 {
 #if BOARD == BBB
 	serial_fd = open("/dev/ttyO4", O_RDWR | O_NOCTTY | O_SYNC);
-	set_interface_attribs(serial_fd, B115200, 0, 0);
+	if (serial_fd < 0) {
+		fprintf(stderr, "open() failed: %s\n", strerror(errno));
+		return 1;
+	}
+	if (set_interface_attribs(serial_fd, B115200, 0, 0))
+		return 1;
 #else
 	serial_set_rx(21);
 	serial_set_tx(5, 0);
@@ -73,19 +78,17 @@ void comms_UART_init(void)
 	serial_clear();
 	serial_format(SERIAL_8N1);
 #endif
+
+	return 0;
 }
 
 #if BOARD == BBB
-int comms_UART_send_cmd(struct board_cmd_ *board_cmd)
+int comms_UART_send_cmd(struct board_cmd_ *board_cmd, uint8_t cmd_mode)
 {
 	uint8_t buff[SIZE_CMD_FULL] = {0};
 
-	tcflush(serial_fd, TCIOFLUSH);
-
-	pack_cmd_full(buff, board_cmd);
+	pack_cmd_full(buff, board_cmd, cmd_mode);
 	write(serial_fd, buff, SIZE_CMD_FULL);
-
-	tcflush(serial_fd, TCIOFLUSH);
 
 	return 0;
 }
@@ -104,7 +107,7 @@ int comms_UART_recv_state(struct board_state_ *board_state, int *got_startb)
 	return 0;
 }
 #else
-int comms_UART_recv_cmd(struct board_cmd_ *board_cmd, int *got_startb)
+int comms_UART_recv_cmd(struct board_cmd_ *board_cmd, int *got_startb, uint8_t *cmd_mode)
 {
 	uint8_t buff[SIZE_CMD_FULL] = {0};
 
@@ -114,7 +117,7 @@ int comms_UART_recv_cmd(struct board_cmd_ *board_cmd, int *got_startb)
 	if (get_packet(buff, got_startb, serial_getchar, serial_available(), SIZE_CMD_FULL))
 		return 1;
 
-	unpack_cmd_full(buff, board_cmd);
+	unpack_cmd_full(buff, board_cmd, cmd_mode);
 
 	return 0;
 }
