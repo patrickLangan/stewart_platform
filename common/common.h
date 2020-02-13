@@ -14,8 +14,8 @@
 
 #define PA_TO_PSI 0.0001450377
 
-#define STP_TO_PERCENT 0.2
-#define STP_MAX 500
+#define STP_TO_PERCENT 0.1
+#define STP_MAX 1000
 
 enum DCV_pos_ {
 	DCV_RETRACT = -1,

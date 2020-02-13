@@ -18,15 +18,16 @@ const int pin_SSR[4] = {35, 36, 27, 28};
 const int pin_STP[4] = {23, 22, 2, 6};
 const int pin_DIR[4] = {17, 14, 24, 25};
 
-void valve_init(void)
+void valve_init(struct valve_ *valve, struct DCV_ *DCV)
 {
 	int i;
 
+	for (i = 0; i < 2; i++)
+		DCV[i].index = i;
 	for (i = 0; i < 4; i++) {
+		valve[i].index = i;
 		pinMode(pin_SSR[i], OUTPUT);
 		digitalWriteFast(pin_SSR[i], 0);
-	}
-	for (i = 0; i < 4; i++) {
 		pinMode(pin_STP[i], OUTPUT);
 		digitalWriteFast(pin_STP[i], 0);
 		pinMode(pin_DIR[i], OUTPUT);
@@ -54,14 +55,17 @@ void valve_coldstart(void)
 		digitalWriteFast(pin_DIR[j], 0);
 }
 
-void DCV_switch(int index, enum DCV_pos_ dir)
+void DCV_switch(struct DCV_ *DCV)
 {
 	int SSR1, SSR2;
 
-	SSR1 = pin_SSR[index * 2];
-	SSR2 = pin_SSR[index * 2 + 1];
+	if (limit_frequency_us(micros(), &DCV->timer, DCV_PERIOD))
+		return;
 
-	switch (dir) {
+	SSR1 = pin_SSR[DCV->index * 2];
+	SSR2 = pin_SSR[DCV->index * 2 + 1];
+
+	switch (DCV->cmd) {
 	case DCV_CLOSE:
 	default:
 		digitalWriteFast(SSR1, 0);
@@ -75,50 +79,51 @@ void DCV_switch(int index, enum DCV_pos_ dir)
 		digitalWriteFast(SSR1, 1);
 		digitalWriteFast(SSR2, 0);
 	}
+
+	DCV->pos = DCV->cmd;
 }
 
-int valve_step(int index, int cmd, int pos, int *stp, int *over)
+void valve_step(struct valve_ *valve)
 {
-	if (pos != cmd) {
+	int index;
+
+	if (limit_frequency_us(micros(), &valve->timer, STP_PERIOD_2))
+		return;
+
+	index = valve->index;
+
+	if (valve->pos != valve->cmd) {
 		int overtravel = 0;
 
-		if (pos < cmd) {
-			if (pos >= 2 * STP_MAX)
-				return pos;
+		if (valve->pos < valve->cmd) {
+			if (valve->pos >= STP_MAX)
+				return;
 			digitalWriteFast(pin_DIR[index], 0);
-			pos++;
+			valve->pos++;
 		} else {
-			if (pos <= 0)
-				return pos;
+			if (valve->pos <= 0)
+				return;
 			digitalWriteFast(pin_DIR[index], 1);
-			if (pos == 1 && *over) {
+			if (valve->pos == 1 && valve->over) {
 				overtravel = 1;
-				(*over)--;
+				valve->over--;
 			} else {
-				pos--;
+				valve->pos--;
 			}
 		}
 
-		*stp = !(*stp);
-		digitalWriteFast(pin_STP[index], *stp);
+		valve->stp = !valve->stp;
+		digitalWriteFast(pin_STP[index], valve->stp);
 
 		if (!overtravel)
-			*over = STP_OVER;
+			valve->over = STP_OVER;
 	}
-
-	return pos;
 }
 
-void valve_control_input(int index, struct valve_state_ *state, float u1, float u2)
+void valve_control_input(struct valve_ *valve1, struct valve_ *valve2, struct DCV_ *DCV, float u1, float u2)
 {
 	int cmd1, cmd2;
 	enum DCV_pos_ DCV_cmd;
-	uint32_t time;
-
-	time = micros();
-
-	if (limit_frequency_us(time, &state->stp_timer, STP_PERIOD_2))
-		return;
 
 	cmd1 = (int)round(u1 * 10.0); /* 10 half-steps per percent */
 	cmd2 = (int)round(u2 * 10.0);
@@ -146,25 +151,18 @@ void valve_control_input(int index, struct valve_state_ *state, float u1, float 
 		DCV_cmd = DCV_RETRACT;
 	else
 		DCV_cmd = DCV_CLOSE;
-	if (state->DCV_pos != DCV_cmd) {
-		if (!state->pos1 && !state->pos2 &&
-		    !limit_frequency_us(time, &state->DCV_timer, DCV_PERIOD))
-		{
-			DCV_switch(index, DCV_cmd);
-			state->DCV_pos = DCV_cmd;
-		} else {
-			cmd1 = 0;
-			cmd2 = 0;
+	if (DCV->pos != DCV_cmd) {
+		if (!valve1->pos && !valve2->pos) {
+			DCV->cmd = DCV_cmd;
+			DCV_switch(DCV);
 		}
+		cmd1 = 0;
+		cmd2 = 0;
 	}
 
-	/*
-	 * For the above calcs it makes sense for valve1,2 to share sign of DCV.
-	 * The following function calls deal with setting the physical valves
-	 * though, where negative travel isn't possible, hence the sign reversal
-	 * on valve2.
-	 */
-	state->pos1 =  valve_step(index * 2 + 0,  cmd1,  state->pos1, &state->stp1, &state->over1);
-	state->pos2 = -valve_step(index * 2 + 1, -cmd2, -state->pos2, &state->stp2, &state->over2);
+	valve1->cmd = abs(cmd1);
+	valve_step(valve1);
+	valve2->cmd = abs(cmd2);
+	valve_step(valve2);
 }
 
