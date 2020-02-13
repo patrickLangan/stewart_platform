@@ -38,10 +38,13 @@ struct cyl_ {
 	int DCV;
 };
 
-struct thread_data_ {
+struct data_ {
 	struct cyl_ cyl_cmd[6];
 	uint8_t cmd_mode;
+	int edit;
+	int curs_cyl, curs_mode;
 	int curs_x, curs_y;
+	WINDOW *win;
 	pthread_mutex_t mutex;
 };
 
@@ -88,8 +91,22 @@ void unpack_board_state(struct cyl_ *cyl, struct board_state_ *bstate)
 	}
 }
 
-void print_DCV(int y, int x, enum DCV_pos_ pos)
+void mvprint_colorf(int y, int x, const char *format, float val, int color)
 {
+	if (color) {
+		attron(COLOR_PAIR(1));
+		mvprintw(y, x, format, val);
+		attroff(COLOR_PAIR(1));
+		return;
+	}
+	mvprintw(y, x, format, val);
+}
+
+void print_DCV(int y, int x, enum DCV_pos_ pos, int color)
+{
+	if (color)
+		attron(COLOR_PAIR(1));
+
 	switch (pos) {
 	case DCV_RETRACT:
 		mvprintw(y, x, "  RET");
@@ -100,19 +117,29 @@ void print_DCV(int y, int x, enum DCV_pos_ pos)
 	case DCV_EXTEND:
 		mvprintw(y, x, "  EXT");
 	}
+
+	if (color)
+		attroff(COLOR_PAIR(1));
 }
 
-void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_cmd)
+void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_cmd, int edit, int curs_mode)
 {
 	mvprintw(y + 0, x + 2, "Cylinder %d", index + 1);
 	mvprintw(y + 1, x + 3, "cmd  state");
-	mvprintw(y + 2, x + 0, "%6.2f %6.2f", cyl_cmd[index].length, cyl[index].length);
+
+	mvprint_colorf(y + 2, x + 0, "%6.2f", cyl_cmd[index].length, (edit && !curs_mode) ? 1 : 0);
+	printw(" %6.2f", cyl[index].length);
+
 	mvprintw(y + 3, x + 0, "       %6.2f", cyl[index].press2 * PA_TO_PSI);
 	mvprintw(y + 4, x + 0, "       %6.2f", cyl[index].press1 * PA_TO_PSI);
-	mvprintw(y + 5, x + 0, "%5.1f  %5.1f", cyl_cmd[index].valve2 * STP_TO_PERCENT, cyl[index].valve2 * STP_TO_PERCENT);
-	mvprintw(y + 6, x + 0, "%5.1f  %5.1f", cyl_cmd[index].valve1 * STP_TO_PERCENT, cyl[index].valve1 * STP_TO_PERCENT);
-	print_DCV(y + 7, x + 0, cyl_cmd[index].DCV);
-	print_DCV(y + 7, x + 7, cyl[index].DCV);
+
+	mvprint_colorf(y + 5, x + 0, "%5.1f", cyl_cmd[index].valve2 * STP_TO_PERCENT, (edit && curs_mode == 1) ? 1 : 0);
+	printw("  %5.1f", cyl[index].valve2 * STP_TO_PERCENT);
+	mvprint_colorf(y + 6, x + 0, "%5.1f", cyl_cmd[index].valve1 * STP_TO_PERCENT, (edit && curs_mode == 2) ? 1 : 0);
+	printw("  %5.1f", cyl[index].valve1 * STP_TO_PERCENT);
+
+	print_DCV(y + 7, x + 0, cyl_cmd[index].DCV, (edit && curs_mode == 3) ? 1 : 0);
+	print_DCV(y + 7, x + 7, cyl[index].DCV, 0);
 }
 
 void cmd_adj(struct cmd_adj_ cmd, int sign)
@@ -126,121 +153,115 @@ void cmd_adj(struct cmd_adj_ cmd, int sign)
 	}
 }
 
-void *input_thread(void *data)
+void *input_thread(void *data_)
 {
-	struct thread_data_ *thread_data;
-	int curs_cyl = 0;
-	int curs_mode = 0;
+	struct data_ *data;
 	const int curs_offx[] = {18, 32, 46, 60, 74, 88, 104};
 	const int curs_offy[] = {2, 5, 6, 7};
 	struct cmd_adj_ cmd[6][4];
-	int edit = 0;
 	int i;
 
-	thread_data = (struct thread_data_ *)data;
+	data = (struct data_ *)data_;
 
 	for (i = 0; i < 6; i++) {
-		cmd[i][0].target = &thread_data->cyl_cmd[i].length;
+		cmd[i][0].target = &data->cyl_cmd[i].length;
 		cmd[i][0].min.f = 0.0;
 		cmd[i][0].max.f = 30.0;
 		cmd[i][0].inc.f = 1.0;
 		cmd[i][0].type = TYPE_FLOAT;
-		cmd[i][1].target = &thread_data->cyl_cmd[i].valve2;
+		cmd[i][1].target = &data->cyl_cmd[i].valve2;
 		cmd[i][1].min.i = 0;
 		cmd[i][1].max.i = STP_MAX;
-		cmd[i][1].inc.i = 5;
+		cmd[i][1].inc.i = 10;
 		cmd[i][1].type = TYPE_INT;
-		cmd[i][2].target = &thread_data->cyl_cmd[i].valve1;
+		cmd[i][2].target = &data->cyl_cmd[i].valve1;
 		cmd[i][2].min.i = 0;
 		cmd[i][2].max.i = STP_MAX;
-		cmd[i][2].inc.i = 5;
+		cmd[i][2].inc.i = 10;
 		cmd[i][2].type = TYPE_INT;
-		cmd[i][3].target = &thread_data->cyl_cmd[i].DCV;
+		cmd[i][3].target = &data->cyl_cmd[i].DCV;
 		cmd[i][3].min.i = DCV_RETRACT;
 		cmd[i][3].max.i = DCV_EXTEND;
 		cmd[i][3].inc.i = 1;
 		cmd[i][3].type = TYPE_INT;
 	}
 
-	pthread_mutex_lock(&thread_data->mutex);
-	thread_data->curs_x = curs_offx[curs_cyl];
-	thread_data->curs_y = curs_offy[curs_mode];
-	pthread_mutex_unlock(&thread_data->mutex);
+	pthread_mutex_lock(&data->mutex);
+	data->curs_x = curs_offx[data->curs_cyl];
+	data->curs_y = curs_offy[data->curs_mode];
+	pthread_mutex_unlock(&data->mutex);
 
 	while (1) {
 		int c;
 		int key_updown = 0;
 
 		c = getch();
+
+		pthread_mutex_lock(&data->mutex);
+
 		switch (c) {
 		case 10:
-			edit = 1;
+			data->edit = !data->edit;
 			break;
 		case 27:
-			edit = 0;
+			data->edit = 0;
 			break;
 		case 'h':
 		case KEY_LEFT:
-			if (curs_cyl > 0)
-				curs_cyl--;
+			if (data->curs_cyl > 0)
+				data->curs_cyl--;
 			else
-				curs_cyl = 6;
-			pthread_mutex_lock(&thread_data->mutex);
-			thread_data->curs_x = curs_offx[curs_cyl];
-			pthread_mutex_unlock(&thread_data->mutex);
-			edit = 0;
+				data->curs_cyl = 6;
+			data->curs_x = curs_offx[data->curs_cyl];
+			data->edit = 0;
 			break;
 		case 'l':
 		case KEY_RIGHT:
-			if (curs_cyl < 6)
-				curs_cyl++;
+			if (data->curs_cyl < 6)
+				data->curs_cyl++;
 			else
-				curs_cyl = 0;
-			pthread_mutex_lock(&thread_data->mutex);
-			thread_data->curs_x = curs_offx[curs_cyl];
-			pthread_mutex_unlock(&thread_data->mutex);
-			edit = 0;
+				data->curs_cyl = 0;
+			data->curs_x = curs_offx[data->curs_cyl];
+			data->edit = 0;
 			break;
 		case 'k':
 		case KEY_UP:
 			key_updown = 1;
-			if (!edit) {
-				if (curs_mode > 0)
-					curs_mode--;
+			if (!data->edit) {
+				if (data->curs_mode > 0)
+					data->curs_mode--;
 				else
-					curs_mode = 3;
+					data->curs_mode = 3;
 			}
 			break;
 		case 'j':
 		case KEY_DOWN:
 			key_updown = -1;
-			if (!edit) {
-				if (curs_mode < 3)
-					curs_mode++;
+			if (!data->edit) {
+				if (data->curs_mode < 3)
+					data->curs_mode++;
 				else
-					curs_mode = 0;
+					data->curs_mode = 0;
 			}
 		}
 
 		if (key_updown) {
-			pthread_mutex_lock(&thread_data->mutex);
-
-			if (edit) {
-				if (curs_cyl < 6)
-					cmd_adj(cmd[curs_cyl][curs_mode], key_updown);
+			if (data->edit) {
+				if (data->curs_cyl < 6)
+					cmd_adj(cmd[data->curs_cyl][data->curs_mode], key_updown);
 				else
 					for (i = 0; i < 6; i++)
-						cmd_adj(cmd[i][curs_mode], key_updown);
-				if (!curs_mode)
-					thread_data->cmd_mode = CMD_LENGTH;
+						cmd_adj(cmd[i][data->curs_mode], key_updown);
+				if (!data->curs_mode)
+					data->cmd_mode = CMD_LENGTH;
 				else
-					thread_data->cmd_mode = CMD_VALVE;
+					data->cmd_mode = CMD_VALVE;
 			} else {
-				thread_data->curs_y = curs_offy[curs_mode];
+				data->curs_y = curs_offy[data->curs_mode];
 			}
-
-			pthread_mutex_unlock(&thread_data->mutex);
 		}
+
+		pthread_mutex_unlock(&data->mutex);
 	}
 }
 
@@ -249,11 +270,10 @@ int main(void)
 	struct cyl_ cyl[6];
 	struct board_cmd_ bcmd[3];
 	struct board_state_ bstate[3];
-	struct thread_data_ thread_data;
+	struct data_ data;
 	uint8_t cmd_mode;
 	pthread_t input_thread_;
 	int got_startb = 0;
-	WINDOW *win;
 	int i, j;
 
 	if (setjmp(jump_buff))
@@ -263,26 +283,29 @@ int main(void)
 
 	memset(bstate, 0, 3 * sizeof(*bstate));
 	memset(bcmd, 0, 3 * sizeof(*bcmd));
-	memset(&thread_data, 0, sizeof(thread_data));
+	memset(&data, 0, sizeof(data));
 
 	if (comms_UART_init())
 		return 1;
 
-	if (pthread_mutex_init(&thread_data.mutex, NULL)) { 
+	if (pthread_mutex_init(&data.mutex, NULL)) {
 		fprintf(stderr, "pthread_mutex_init() failed.\n"); 
 		return 1; 
 	} 
 
-	if (pthread_create(&input_thread_, NULL, input_thread, &thread_data)) {
+	if (pthread_create(&input_thread_, NULL, input_thread, &data)) {
 		fprintf(stderr, "pthread_create() failed.\n"); 
 		return 1; 
 	}
 
-	if (!(win = initscr())) {
+	if (!(data.win = initscr())) {
 		fprintf(stderr, "initscr() failed.\n");
 		return 1;
 	}
-	keypad(win, 1);
+	keypad(data.win, 1);
+
+	start_color();
+	init_pair(1, COLOR_BLACK, COLOR_WHITE);
 
 	cbreak();
 	noecho();
@@ -294,10 +317,10 @@ int main(void)
 			;
 		unpack_board_state(cyl, bstate);
 
-		pthread_mutex_lock(&thread_data.mutex);
-		pack_board_cmd(thread_data.cyl_cmd, bcmd);
-		cmd_mode = thread_data.cmd_mode;
-		pthread_mutex_unlock(&thread_data.mutex);
+		pthread_mutex_lock(&data.mutex);
+		pack_board_cmd(data.cyl_cmd, bcmd);
+		cmd_mode = data.cmd_mode;
+		pthread_mutex_unlock(&data.mutex);
 		comms_UART_send_cmd(bcmd, cmd_mode);
 
 		clear();
@@ -308,25 +331,29 @@ int main(void)
 		mvprintw(5, 0, "valve upper (%)");
 		mvprintw(6, 0, "valve lower (%)");
 		mvprintw(7, 0, "            DCV");
-		pthread_mutex_lock(&thread_data.mutex);
-		for (i = 0; i < 6; i++)
-			print_cylinder(0, 16 + i * 14, i, cyl, thread_data.cyl_cmd);
-		pthread_mutex_unlock(&thread_data.mutex);
+		pthread_mutex_lock(&data.mutex);
+		for (i = 0; i < 6; i++) {
+			int edit = 0;
+			if (data.edit && i == data.curs_cyl)
+				edit = 1;
+			print_cylinder(0, 16 + i * 14, i, cyl, data.cyl_cmd, edit, data.curs_mode);
+		}
+		pthread_mutex_unlock(&data.mutex);
 
 		mvprintw(2, 104, "cmd-all");
 		mvprintw(5, 104, "cmd-all");
 		mvprintw(6, 104, "cmd-all");
 		mvprintw(7, 104, "cmd-all");
 
-		pthread_mutex_lock(&thread_data.mutex);
-		move(thread_data.curs_y, thread_data.curs_x);
-		pthread_mutex_unlock(&thread_data.mutex);
+		pthread_mutex_lock(&data.mutex);
+		move(data.curs_y, data.curs_x);
+		pthread_mutex_unlock(&data.mutex);
 
 		refresh();
 	}
 
 quit:
-	delwin(win);
+	delwin(data.win);
 	endwin();
 	refresh();
 
