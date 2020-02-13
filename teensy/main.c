@@ -111,9 +111,7 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, struct 
 {
 	static uint32_t timer = COMMS_PSHIFT;
 #if BOARD == TEENSY1
-	static int got_startb0;
-	static int got_startb1;
-	static int got_startb2;
+	static int got_startb;
 	static int state;
 
 	if (limit_frequency_us(micros(), &timer, COMMS_PERIOD_4))
@@ -122,36 +120,32 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, struct 
 	switch (state) {
 	default:
 	case 0:
-		while (!comms_UART_recv_cmd(bcmd, &got_startb0, cmd_mode))
+		while (!comms_UART_recv_cmd(bcmd, &got_startb, cmd_mode))
 			;
 		if (*cmd_mode == CMD_VALVE)
 			unpack_valve_cmd(valve_state, &bcmd[0]);
 		state++;
 		break;
 	case 1:
+		comms_485_send(1, &bcmd[1], *cmd_mode);
+		comms_485_recv(2, &bstate[2]);
+		state++;
+		break;
+	case 2:
 		pack_valve_state(valve_state, &bstate[0]);
 		comms_UART_send_state(bstate);
 		state++;
 		break;
-	case 2:
-		comms_485_send(1, &bcmd[1], *cmd_mode);
-		while (!comms_485_recv(2, &bstate[2], &got_startb2))
-			;
-		state++;
-		break;
 	case 3:
 		comms_485_send(2, &bcmd[2], *cmd_mode);
-		while (!comms_485_recv(1, &bstate[1], &got_startb1))
-			;
+		comms_485_recv(1, &bstate[1]);
 		state = 0;
 	}
 #else
-	static int got_startb;
-
 	if (limit_frequency_us(micros(), &timer, COMMS_SLAVE_PERIOD))
 		return;
 
-	if (!comms_485_slave(&bstate[BOARD], &bcmd[BOARD], &got_startb, cmd_mode)) {
+	if (!comms_485_slave(&bstate[BOARD], &bcmd[BOARD], cmd_mode)) {
 		if (*cmd_mode)
 			unpack_valve_cmd(valve_state, &bcmd[BOARD]);
 		pack_valve_state(valve_state, &bstate[BOARD]);

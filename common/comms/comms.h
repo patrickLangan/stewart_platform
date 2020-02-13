@@ -35,6 +35,8 @@ void pack_cmd_full(uint8_t *buff, struct board_cmd_ *board_cmd, uint8_t cmd_mode
 
 int unpack_cmd_full(uint8_t *buff, struct board_cmd_ *board_cmd, uint8_t *cmd_mode);
 
+int get_packet_unbuffered(uint8_t *buff, int (*getchar)(void), int n, int buff_size);
+
 int get_packet(uint8_t *buff, int *got_startb, int (*getchar)(void), int n, int buff_size);
 
 #endif

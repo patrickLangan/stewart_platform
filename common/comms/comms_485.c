@@ -47,43 +47,54 @@ int comms_485_send(int index, struct board_cmd_ *board_cmd, uint8_t cmd_mode)
 	return 0;
 }
 
-int comms_485_recv(int index, struct board_state_ *board_state, int *got_startb)
+int comms_485_recv(int index, struct board_state_ *board_state)
 {
 	uint8_t buff[SIZE_STATE] = {0};
+	int ret = 1;
 
 	switch (index) {
 	default:
 	case 1:
-		if (get_packet(buff, got_startb, serial3_getchar, serial3_available(), SIZE_STATE))
-			return 1;
+		while (!get_packet_unbuffered(buff, serial3_getchar, serial3_available(), SIZE_STATE))
+			ret = 0;
+		serial3_clear();
 		break;
 	case 2:
-		if (get_packet(buff, got_startb, serial5_getchar, serial5_available(), SIZE_STATE))
-			return 1;
+		while (!get_packet_unbuffered(buff, serial5_getchar, serial5_available(), SIZE_STATE))
+			ret = 0;
+		serial5_clear();
 	}
+
+	if (ret)
+		return 1;
 
 	unpack_state(buff, board_state);
 
 	return 0;
 }
 
-int comms_485_slave(struct board_state_ *board_state, struct board_cmd_ *board_cmd, int *got_startb, uint8_t *cmd_mode)
+int comms_485_slave(struct board_state_ *board_state, struct board_cmd_ *board_cmd, uint8_t *cmd_mode)
 {
 	uint8_t buff_tx[SIZE_STATE] = {0};
 	uint8_t buff_rx[SIZE_CMD] = {0};
+	int ret = 1;
 
-	if (!serial3_available())
+	if (serial3_available() < SIZE_CMD)
 		return 1;
 
-	if (get_packet(buff_rx, got_startb, serial3_getchar, serial3_available(), SIZE_CMD))
-		return 1;
-
-	unpack_cmd(buff_rx, board_cmd, cmd_mode);
+	while (!get_packet_unbuffered(buff_rx, serial3_getchar, serial3_available(), SIZE_CMD))
+		ret = 0;
+	serial3_clear();
 
 	if (serial3_write_buffer_free()) {
 		pack_state(buff_tx, board_state);
 		serial3_write(buff_tx, SIZE_STATE);
 	}
+
+	if (ret)
+		return 1;
+
+	unpack_cmd(buff_rx, board_cmd, cmd_mode);
 
 	return 0;
 }

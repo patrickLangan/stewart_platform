@@ -7,9 +7,9 @@ void comms_485_init(void);
 
 int comms_485_send(int index, struct board_cmd_ *board_cmd, uint8_t cmd_mode);
 
-int comms_485_recv(int index, struct board_state_ *board_state, int *got_startb);
+int comms_485_recv(int index, struct board_state_ *board_state);
 
-int comms_485_slave(struct board_state_ *board_state, struct board_cmd_ *board_cmd, int *got_startb, uint8_t *cmd_mode);
+int comms_485_slave(struct board_state_ *board_state, struct board_cmd_ *board_cmd, uint8_t *cmd_mode);
 
 #endif
 

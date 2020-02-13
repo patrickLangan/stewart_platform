@@ -194,20 +194,46 @@ int unpack_cmd_full(uint8_t *buff, struct board_cmd_ *board_cmd, uint8_t *cmd_mo
 	return 0;
 }
 
+int get_packet_unbuffered(uint8_t *buff, int (*getchar)(void), int n, int buff_size)
+{
+	int i;
+
+	for (i = 0; i < n; i++)
+		if (getchar() == START_BYTE)
+			break;
+
+	if (i == n)
+		return 1;
+
+	if (n - i < buff_size)
+		return 1;
+
+	buff[0] = START_BYTE;
+	for (i = 1; i < buff_size; i++)
+		buff[i] = getchar();
+
+	return 0;
+}
+
 int get_packet(uint8_t *buff, int *got_startb, int (*getchar)(void), int n, int buff_size)
 {
 	int i;
 
-	if (!*got_startb) {
-		for (i = 0; i < n; i++, n--)
+	if (!(*got_startb)) {
+		for (i = 0; i < n; i++) {
 			if (getchar() == START_BYTE) {
 				*got_startb = 1;
 				break;
 			}
+		}
+		if (!(*got_startb))
+			return 1;
+		if (n - i < buff_size)
+			return 1;
+	} else {
+		if (n < buff_size)
+			return 1;
 	}
-
-	if (!*got_startb || n < buff_size)
-		return 1;
 
 	buff[0] = START_BYTE;
 	for (i = 1; i < buff_size; i++)
