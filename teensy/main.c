@@ -171,8 +171,6 @@ int main(void)
 	spi_init();
 	valve_init(valve, DCV);
 
-	//valve_coldstart();
-
 	while (1) {
 		comms_advance(bstate, bcmd, &cmd_mode, valve, DCV);
 

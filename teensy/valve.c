@@ -35,26 +35,6 @@ void valve_init(struct valve_ *valve, struct DCV_ *DCV)
 	}
 }
 
-void valve_coldstart(void)
-{
-	int i, j;
-
-	for (j = 0; j < 4; j++)
-		digitalWriteFast(pin_DIR[j], 1);
-
-	for (i = 0; i < STP_MAX + STP_OVER; i++) {
-		for (j = 0; j < 4; j++)
-			digitalWriteFast(pin_STP[j], 1);
-		delayMicroseconds(STP_PERIOD_2);
-		for (j = 0; j < 4; j++)
-			digitalWriteFast(pin_STP[j], 0);
-		delayMicroseconds(STP_PERIOD_2);
-	}
-
-	for (j = 0; j < 4; j++)
-		digitalWriteFast(pin_DIR[j], 0);
-}
-
 void DCV_switch(struct DCV_ *DCV)
 {
 	int SSR1, SSR2;
@@ -85,6 +65,7 @@ void DCV_switch(struct DCV_ *DCV)
 
 void valve_step(struct valve_ *valve)
 {
+	int overtravel = 0;
 	int index;
 
 	if (limit_frequency_us(micros(), &valve->timer, STP_PERIOD_2))
@@ -93,18 +74,24 @@ void valve_step(struct valve_ *valve)
 	index = valve->index;
 
 	if (valve->pos != valve->cmd) {
-		int overtravel = 0;
-
 		if (valve->pos < valve->cmd) {
 			if (valve->pos >= STP_MAX)
 				return;
 			digitalWriteFast(pin_DIR[index], 0);
 			valve->pos++;
 		} else {
-			if (valve->pos <= 0)
-				return;
 			digitalWriteFast(pin_DIR[index], 1);
-			if (valve->pos == 1 && valve->over) {
+			if (valve->cmd < 0) {
+				if (!valve->over)
+					return;
+				overtravel = 1;
+				if (valve->last_cmd >= 0)
+					valve->over = STP_MAX;
+				if (valve->pos > 0)
+					valve->pos--;
+				else
+					valve->over--;
+			} else if (valve->pos == 1 && valve->over) {
 				overtravel = 1;
 				valve->over--;
 			} else {
@@ -114,10 +101,12 @@ void valve_step(struct valve_ *valve)
 
 		valve->stp = !valve->stp;
 		digitalWriteFast(pin_STP[index], valve->stp);
-
-		if (!overtravel)
-			valve->over = STP_OVER;
 	}
+
+	valve->last_cmd = valve->cmd;
+
+	if (!overtravel)
+		valve->over = STP_OVER;
 }
 
 void valve_control_input(struct valve_ *valve1, struct valve_ *valve2, struct DCV_ *DCV, float u1, float u2)

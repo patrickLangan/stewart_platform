@@ -170,12 +170,12 @@ void *input_thread(void *data_)
 		cmd[i][0].inc.f = 1.0;
 		cmd[i][0].type = TYPE_FLOAT;
 		cmd[i][1].target = &data->cyl_cmd[i].valve2;
-		cmd[i][1].min.i = 0;
+		cmd[i][1].min.i = -10;
 		cmd[i][1].max.i = STP_MAX;
 		cmd[i][1].inc.i = 10;
 		cmd[i][1].type = TYPE_INT;
 		cmd[i][2].target = &data->cyl_cmd[i].valve1;
-		cmd[i][2].min.i = 0;
+		cmd[i][2].min.i = -10;
 		cmd[i][2].max.i = STP_MAX;
 		cmd[i][2].inc.i = 10;
 		cmd[i][2].type = TYPE_INT;

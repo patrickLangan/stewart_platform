@@ -5,7 +5,7 @@
 
 struct valve_ {
 	int pos;
-	int cmd;
+	int cmd, last_cmd;
 	int stp;
 	int over;
 	uint32_t timer;
@@ -20,8 +20,6 @@ struct DCV_ {
 };
 
 void valve_init(struct valve_ *valve, struct DCV_ *DCV);
-
-void valve_coldstart(void);
 
 void DCV_switch(struct DCV_ *DCV);
 
