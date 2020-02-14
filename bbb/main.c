@@ -44,6 +44,7 @@ struct data_ {
 	int edit;
 	int curs_cyl, curs_mode;
 	int curs_x, curs_y;
+	int estop;
 	WINDOW *win;
 	pthread_mutex_t mutex;
 };
@@ -53,6 +54,11 @@ static jmp_buf jump_buff;
 void sigint_handler(int empty)
 {
 	longjmp(jump_buff, 1);
+}
+
+double time_diff(struct timespec t2, struct timespec t1)
+{
+	return ((double)t2.tv_sec + (double)t2.tv_nsec / 1e9) - ((double)t1.tv_sec + (double)t1.tv_nsec / 1e9);
 }
 
 void pack_board_cmd(struct cyl_ *cyl, struct board_cmd_ *bcmd)
@@ -142,6 +148,17 @@ void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_
 	print_DCV(y + 7, x + 7, cyl[index].DCV, 0);
 }
 
+void cmd_set(struct cmd_adj_ cmd, union flin val)
+{
+	switch (cmd.type) {
+	case TYPE_INT:
+		*(int *)cmd.target = val.i;
+		break;
+	case TYPE_FLOAT:
+		*(float *)cmd.target = val.f;
+	}
+}
+
 void cmd_adj(struct cmd_adj_ cmd, int sign)
 {
 	switch (cmd.type) {
@@ -159,7 +176,9 @@ void *input_thread(void *data_)
 	const int curs_offx[] = {18, 32, 46, 60, 74, 88, 104};
 	const int curs_offy[] = {2, 5, 6, 7};
 	struct cmd_adj_ cmd[6][4];
-	int i;
+	union flin cmd_zero = {0};
+	int i, j;
+	int ret = 0;
 
 	data = (struct data_ *)data_;
 
@@ -200,6 +219,16 @@ void *input_thread(void *data_)
 		pthread_mutex_lock(&data->mutex);
 
 		switch (c) {
+		case ' ':
+			for (i = 0; i < 6; i++)
+				for (j = 0; j < 4; j++)
+					cmd_set(cmd[i][j], cmd_zero);
+			data->edit = 0;
+			data->estop = 1;
+			curs_set(0);
+			pthread_mutex_unlock(&data->mutex);
+			pthread_exit(&ret);
+			break;
 		case 10:
 			data->edit = !data->edit;
 			break;
@@ -274,6 +303,8 @@ int main(void)
 	uint8_t cmd_mode;
 	pthread_t input_thread_;
 	int got_startb = 0;
+	static struct timespec last_time;
+	struct timespec cur_time;
 	int i, j;
 
 	if (setjmp(jump_buff))
@@ -306,9 +337,13 @@ int main(void)
 
 	start_color();
 	init_pair(1, COLOR_BLACK, COLOR_WHITE);
+	init_pair(2, COLOR_BLACK, COLOR_RED);
+	init_pair(3, COLOR_RED, COLOR_BLACK);
 
 	cbreak();
 	noecho();
+
+	clock_gettime(CLOCK_REALTIME, &last_time);
 
 	while (1) {
 		while (!comms_UART_recv_state(bstate, &got_startb))
@@ -316,6 +351,8 @@ int main(void)
 		while (comms_UART_recv_state(bstate, &got_startb))
 			;
 		unpack_board_state(cyl, bstate);
+
+		clock_gettime(CLOCK_REALTIME, &cur_time);
 
 		pthread_mutex_lock(&data.mutex);
 		pack_board_cmd(data.cyl_cmd, bcmd);
@@ -334,7 +371,7 @@ int main(void)
 		pthread_mutex_lock(&data.mutex);
 		for (i = 0; i < 6; i++) {
 			int edit = 0;
-			if (data.edit && i == data.curs_cyl)
+			if (data.edit && (i == data.curs_cyl || data.curs_cyl == 6))
 				edit = 1;
 			print_cylinder(0, 16 + i * 14, i, cyl, data.cyl_cmd, edit, data.curs_mode);
 		}
@@ -344,6 +381,20 @@ int main(void)
 		mvprintw(5, 104, "cmd-all");
 		mvprintw(6, 104, "cmd-all");
 		mvprintw(7, 104, "cmd-all");
+
+		move(9, 50);
+		if (data.estop) {
+			static int pair = 2;
+			if (time_diff(cur_time, last_time) > 0.25) {
+				last_time = cur_time;
+				pair = (pair == 2) ? 3 : 2;
+			}
+			attron(COLOR_PAIR(pair));
+			printw("E-STOP - restart required");
+			attroff(COLOR_PAIR(pair));
+		} else {
+			printw("E-STOP (SPACE BAR)");
+		}
 
 		pthread_mutex_lock(&data.mutex);
 		move(data.curs_y, data.curs_x);
