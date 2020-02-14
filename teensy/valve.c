@@ -39,6 +39,9 @@ void DCV_switch(struct DCV_ *DCV)
 {
 	int SSR1, SSR2;
 
+	if (DCV->pos == DCV->cmd)
+		return;
+
 	if (limit_frequency_us(micros(), &DCV->timer, DCV_PERIOD))
 		return;
 
@@ -66,14 +69,15 @@ void DCV_switch(struct DCV_ *DCV)
 void valve_step(struct valve_ *valve)
 {
 	int overtravel = 0;
-	int index;
-
-	if (limit_frequency_us(micros(), &valve->timer, STP_PERIOD_2))
-		return;
-
-	index = valve->index;
 
 	if (valve->pos != valve->cmd) {
+		int index;
+
+		if (limit_frequency_us(micros(), &valve->timer, STP_PERIOD_2))
+			return;
+
+		index = valve->index;
+
 		if (valve->pos < valve->cmd) {
 			if (valve->pos >= STP_MAX)
 				return;
