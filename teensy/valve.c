@@ -6,12 +6,12 @@
 #include "pins_arduino.h"
 
 /*
- * Over-tighten the valves by this amount whenever closed (accounts for skipped
- * steps, if that's even a problem with this system)
+ * Over-tighten the valves by this amount whenever closed (an attempt to
+ * account for skipped steps)
  */
 #define STP_OVER 4
 
-#define STP_PERIOD_2 950  /* 500 steps in 0.95 seconds -> 0.00095s per half-step */
+#define STP_PERIOD_2 1210  /* 1.21s full travel, experimentally determined */
 #define DCV_PERIOD 333333 /* 3 cycles/sec -> 0.333s per cycle */
 
 const int pin_SSR[4] = {35, 36, 27, 28};
