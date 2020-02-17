@@ -22,13 +22,15 @@
 #define COMMS_SLAVE_PERIOD 2000
 #define COMMS_PSHIFT        500
 
-const float length_scale[2] = {0.0121669, 0.0121669};
 #if BOARD == TEENSY1
-const float length_offset[2] = {-12.2, -12.38};
+const float length_scale[2] = {0.011859, 0.011839};
+const float length_offset[2] = {-11.89, -12.04};
 #elif BOARD == TEENSY2
-const float length_offset[2] = {-12.49, -12.28};
+const float length_scale[2] = {0.011889, 0.011833};
+const float length_offset[2] = {-12.16, -12.01};
 #elif BOARD == TEENSY3
-const float length_offset[2] = {-12.20, -12.30};
+const float length_scale[2] = {0.011866, 0.011786};
+const float length_offset[2] = {-11.88, -11.9};
 #endif
 
 const int pressure_channel[4] = {3, 2, 1, 0};
