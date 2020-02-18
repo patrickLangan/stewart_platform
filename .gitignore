@@ -1,0 +1,10 @@
+teensy/teensy3/*
+teensy/tools/*
+teensy/SPI/*
+teensy/i2c_t3/*
+*.o
+*.d
+*.elf
+*.hex
+*.out
+
