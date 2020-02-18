@@ -78,7 +78,7 @@ static int pressure_read(int channel, float *val)
 }
 
 /*
- * Read SPI length sensor ADC, convert raw data to inches.
+ * Read SPI length sensor ADC, convert raw data to meters.
  */
 static int length_read(int channel, float *val, float scale, float offset)
 {
@@ -88,7 +88,7 @@ static int length_read(int channel, float *val, float scale, float offset)
 	spi_read(buff, channel, 2);
 
 	tmp = (((buff[0] << (int32_t)8) | buff[1]) >> 1) & 0xFFF;
-	*val = (float)tmp * scale + offset;
+	*val = (float)tmp * (scale * IN_TO_M) + (offset * IN_TO_M);
 
 	return 0;
 }

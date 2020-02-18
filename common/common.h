@@ -14,6 +14,9 @@
 
 #define PA_TO_PSI 0.0001450377
 
+#define IN_TO_M 0.0254
+#define M_TO_IN (1.0 / 0.0254)
+
 #define STP_TO_PERCENT 0.1
 #define STP_MAX 1000
 

@@ -15,31 +15,17 @@ const float Ks[1200] = {
 #include "K.csv"
 };
 
-const float grav = 9.81; /* m/s^2 */
 const float R = 8.314; /* j/(K*mol) */
-const float M = 28.97; /* kg/kmol */
-
-const float N9 = 22.5;
-const float Pref = 101325.0; /* Pa */
-const float Tref = 288.15; /* K */
-
 const float T = 296.15; /* K */
 const float P0 = 101325.0; /* Pa */
 const float Ps = 721853.4; /* Pa */
-
 const float A1 = 0.0020268299; /* m^2 */
 const float A2 = 0.0017418070; /* m^2 */
 const float L = 0.762; /* m */
-const float m = 15.6881; /* kg */
-
-const float Xt = 0.6281276364;
-
-const float k = 1e9;
-
-const float valve_velmax = 111.1111; /* %/s */
-const float valve_trvmax = 100.0; /* % */
-
 const float mg = 125.0; /* N */
+
+const float valve_velmax = 82.64; /* %/s */
+const float valve_trvmax = 100.0; /* % */
 
 static void gain_schedule(float K[2][6], float x10)
 {

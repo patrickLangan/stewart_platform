@@ -139,8 +139,8 @@ void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_
 	mvprintw(y + 0, x + 2, "Cylinder %d", index + 1);
 	mvprintw(y + 1, x + 3, "cmd  state");
 
-	mvprint_colorf(y + 2, x + 0, "%6.2f", cyl_cmd[index].length, (edit && !curs_mode) ? 1 : 0);
-	printw(" %6.2f", cyl[index].length);
+	mvprint_colorf(y + 2, x + 0, "%6.2f", cyl_cmd[index].length * M_TO_IN, (edit && !curs_mode) ? 1 : 0);
+	printw(" %6.2f", cyl[index].length * M_TO_IN);
 
 	mvprintw(y + 3, x + 0, "       %6.2f", cyl[index].press2 * PA_TO_PSI);
 	mvprintw(y + 4, x + 0, "       %6.2f", cyl[index].press1 * PA_TO_PSI);
@@ -207,8 +207,8 @@ void *input_thread(void *data_)
 	for (i = 0; i < 6; i++) {
 		cmd[i][0].target = &data->cyl_cmd[i].length;
 		cmd[i][0].min.f = 0.0;
-		cmd[i][0].max.f = 30.0;
-		cmd[i][0].inc.f = 1.0;
+		cmd[i][0].max.f = 0.762;
+		cmd[i][0].inc.f = 1.0 * IN_TO_M;
 		cmd[i][0].type = TYPE_FLOAT;
 		cmd[i][1].target = &data->cyl_cmd[i].valve2;
 		cmd[i][1].min.i = -10;
@@ -388,7 +388,7 @@ int main(void)
 
 		clear();
 
-		mvprintw(2, 0, "    length (in) 10");
+		mvprintw(2, 0, "    length (in)");
 		mvprintw(3, 0, "  p-upper (psi)");
 		mvprintw(4, 0, "  p-lower (psi)");
 		mvprintw(5, 0, "valve upper (%)");
