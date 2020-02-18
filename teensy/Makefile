@@ -65,7 +65,7 @@ SIZE = $(COMPILERPATH)/arm-none-eabi-size
 
 # automatically create lists of the sources and objects
 # TODO: this does not handle Arduino libraries yet...
-C_FILES := main.c valve.c $(wildcard ../common/*.c) $(wildcard ../common/comms/*.c) $(wildcard teensy3/*.c)
+C_FILES := main.c valve.c control.c $(wildcard ../common/*.c) $(wildcard ../common/comms/*.c) $(wildcard teensy3/*.c)
 CPP_FILES := i2c.cpp spi.cpp $(wildcard teensy3/*.cpp) i2c_t3/i2c_t3.cpp SPI/SPI.cpp
 OBJS := $(C_FILES:.c=.o) $(CPP_FILES:.cpp=.o)
 

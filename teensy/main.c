@@ -13,9 +13,11 @@
 #include "spi.h"
 #include "i2c.h"
 #include "valve.h"
+#include "control.h"
 
 #define PRESSURE_PERIOD_4  2500
 #define PRESSURE_PSHIFT       0
+#define LSENSOR_PERIOD    10000
 #define LSENSOR_PERIOD_2   5000
 #define LSENSOR_PSHIFT     1000
 #define COMMS_PERIOD_4     5000
@@ -109,15 +111,26 @@ void pressure_advance(float *pressure)
 		i = sensor_num - 1;
 }
 
-void length_advance(float *length)
+void length_advance(float *length, float *length_dot)
 {
+	static int first[2] = {1, 1};
+	float last_length;
 	static int i;
 	static uint32_t timer = LSENSOR_PSHIFT;
 
 	if (limit_frequency(micros(), &timer, LSENSOR_PERIOD_2))
 		return;
 
+	last_length = length[i];
 	length_read(i, &length[i], length_scale[i], length_offset[i]);
+
+	if (first[i]) {
+		first[i] = 0;
+		last_length = length[i];
+	}
+
+	length_dot[i] = (length[i] - last_length) / (LSENSOR_PERIOD / 1e6);
+
 	i = !i;
 }
 
@@ -181,6 +194,7 @@ int main(void)
 	struct board_cmd_ bcmd[3];
 	struct valve_ valve[4];
 	struct DCV_ DCV[4];
+	struct control_data_ control_data[2];
 	uint8_t cmd_mode;
 	int i;
 
@@ -188,6 +202,7 @@ int main(void)
 	memset(bcmd, 0, 3 * sizeof(*bcmd));
 	memset(valve, 0, 4 * sizeof(*valve));
 	memset(DCV, 0, 2 * sizeof(*DCV));
+	memset(control_data, 0, 2 * sizeof(*control_data));
 
 	comms_UART_init();
 	comms_485_init();
@@ -199,12 +214,25 @@ int main(void)
 		comms_advance(bstate, bcmd, &cmd_mode, valve, DCV);
 
 		pressure_advance(bstate[BOARD].pressure);
-		length_advance(bstate[BOARD].length);
+		length_advance(bstate[BOARD].length, bstate[BOARD].length_dot);
 
 		switch (cmd_mode) {
 		case CMD_LENGTH:
-			valve_control_input(&valve[0], &valve[1], &DCV[0], bcmd[BOARD].length[0], bcmd[BOARD].length[0]);
-			valve_control_input(&valve[2], &valve[3], &DCV[1], bcmd[BOARD].length[1], bcmd[BOARD].length[1]);
+			for (i = 0; i < 2; i++) {
+				control_advance(&control_data[i],
+					bstate[BOARD].length[i],
+					bstate[BOARD].length_dot[i],
+					bstate[BOARD].pressure[i * 2 + 0],
+					bstate[BOARD].pressure[i * 2 + 1],
+					bcmd[BOARD].length[0],
+					micros());
+
+				valve_control_input(&valve[i * 2 + 0],
+				                    &valve[i * 2 + 1],
+				                    &DCV[i],
+				                    control_data[i].x5,
+						    control_data[i].x6);
+			}
 			break;
 		case CMD_VALVE:
 			for (i = 0; i < 2; i++)

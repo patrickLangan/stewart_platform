@@ -25,6 +25,7 @@ enum DCV_pos_ {
 
 struct board_state_ {
 	float length[2];
+	float length_dot[2];
 	float pressure[4];
 	int16_t valve[4];
 	int8_t DCV[2];
