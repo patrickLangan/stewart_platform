@@ -5,10 +5,6 @@
 #include "WProgram.h"
 #include "pins_arduino.h"
 
-/*
- * Over-tighten the valves by this amount whenever closed (an attempt to
- * account for skipped steps)
- */
 #define STP_OVER 4
 
 #define STP_PERIOD_2 1210  /* 1.21s full travel, experimentally determined */
@@ -35,6 +31,10 @@ void valve_init(struct valve_ *valve, struct DCV_ *DCV)
 	}
 }
 
+/*
+ * Set position of Directional Control Valve (DCV).  Limit rate of position
+ * change by DCV_PERIOD (DCV can fail if cycled faster than rating).
+ */
 void DCV_switch(struct DCV_ *DCV)
 {
 	int SSR1, SSR2;
@@ -42,7 +42,7 @@ void DCV_switch(struct DCV_ *DCV)
 	if (DCV->pos == DCV->cmd)
 		return;
 
-	if (limit_frequency_us(micros(), &DCV->timer, DCV_PERIOD))
+	if (limit_frequency(micros(), &DCV->timer, DCV_PERIOD))
 		return;
 
 	SSR1 = pin_SSR[DCV->index * 2];
@@ -66,6 +66,14 @@ void DCV_switch(struct DCV_ *DCV)
 	DCV->pos = DCV->cmd;
 }
 
+/*
+ * Drive stepper-valve to its commanded position one step at a time.
+ * If the commanded position is zero, over-tighten the valve by STP_OVER
+ * half-steps (in an attempt to account for skipped steps).
+ * If the commanded position is negative, over-tighten the valve by no more than
+ * STP_MAX half-steps.  This allows for manually over-tightening the valve
+ * through the HMI.
+ */
 void valve_step(struct valve_ *valve)
 {
 	int overtravel = 0;
@@ -73,7 +81,7 @@ void valve_step(struct valve_ *valve)
 	if (valve->pos != valve->cmd) {
 		int index;
 
-		if (limit_frequency_us(micros(), &valve->timer, STP_PERIOD_2))
+		if (limit_frequency(micros(), &valve->timer, STP_PERIOD_2))
 			return;
 
 		index = valve->index;
@@ -113,11 +121,21 @@ void valve_step(struct valve_ *valve)
 		valve->over = STP_OVER;
 }
 
+/*
+ * Set valves based on control input in the form:
+ * -100% <= u1 <= 100%, -100% <= u2 <= 100%
+ * The mapping from this form to the physically existing control input (two
+ * stepper-valves and one DCV) is not exact.  The advantage of this form is
+ * that it allows for control algorithms which are smooth, non-integer, and
+ * unconstrained (e.g. LQR).  The disadvantage is un-modeled behavior when
+ * sign(u1) != sign(u2).
+ */
 void valve_control_input(struct valve_ *valve1, struct valve_ *valve2, struct DCV_ *DCV, float u1, float u2)
 {
 	int cmd1, cmd2;
 	enum DCV_pos_ DCV_cmd;
 
+	/* Convert from percent travel command to half-step count. */
 	cmd1 = (int)round(u1 * 10.0); /* 10 half-steps per percent */
 	cmd2 = (int)round(u2 * 10.0);
 

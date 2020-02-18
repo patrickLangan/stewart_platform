@@ -35,6 +35,10 @@ const float length_offset[2] = {-11.88, -11.9};
 
 const int pressure_channel[4] = {3, 2, 1, 0};
 
+/*
+ * Re-package valve data into a more convenient format for board interface
+ * (bstate) as opposed to direct valve interface (valve, DCV).
+ */
 void pack_valve_state(struct valve_ *valve, struct DCV_ *DCV, struct board_state_ *bstate)
 {
 	int i;
@@ -53,6 +57,9 @@ void unpack_valve_cmd(struct valve_ *valve, struct DCV_ *DCV, struct board_cmd_ 
 		DCV[i].cmd = bcmd->DCV[i];
 }
 
+/*
+ * Read I2C pressure sensor, convert raw data to pascals.
+ */
 static int pressure_read(int channel, float *val)
 {
 	const float pressure_scale = 63.1272415218;
@@ -68,6 +75,9 @@ static int pressure_read(int channel, float *val)
 	return 0;
 }
 
+/*
+ * Read SPI length sensor ADC, convert raw data to inches.
+ */
 static int length_read(int channel, float *val, float scale, float offset)
 {
 	uint8_t buff[2];
@@ -81,13 +91,17 @@ static int length_read(int channel, float *val, float scale, float offset)
 	return 0;
 }
 
+/*
+ * Manage timing of when sensor readings are taken.  Read one at a time to
+ * avoid taking up too much time per call (single thread).
+ */
 void pressure_advance(float *pressure)
 {
 	const int sensor_num = 4;
 	static int i = sensor_num - 1;
 	static uint32_t timer = PRESSURE_PSHIFT;
 
-	if (limit_frequency_us(micros(), &timer, PRESSURE_PERIOD_4))
+	if (limit_frequency(micros(), &timer, PRESSURE_PERIOD_4))
 		return;
 
 	pressure_read(pressure_channel[i], &pressure[i]);
@@ -100,13 +114,16 @@ void length_advance(float *length)
 	static int i;
 	static uint32_t timer = LSENSOR_PSHIFT;
 
-	if (limit_frequency_us(micros(), &timer, LSENSOR_PERIOD_2))
+	if (limit_frequency(micros(), &timer, LSENSOR_PERIOD_2))
 		return;
 
 	length_read(i, &length[i], length_scale[i], length_offset[i]);
 	i = !i;
 }
 
+/*
+ * Manage timing of comms packet transmission/reception.
+ */
 void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, uint8_t *cmd_mode, struct valve_ *valve, struct DCV_ *DCV)
 {
 	static uint32_t timer = COMMS_PSHIFT;
@@ -114,7 +131,7 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, uint8_t
 	static int got_startb;
 	static int state;
 
-	if (limit_frequency_us(micros(), &timer, COMMS_PERIOD_4))
+	if (limit_frequency(micros(), &timer, COMMS_PERIOD_4))
 		return;
 
 	switch (state) {
@@ -142,7 +159,7 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, uint8_t
 		state = 0;
 	}
 #else
-	if (limit_frequency_us(micros(), &timer, COMMS_SLAVE_PERIOD))
+	if (limit_frequency(micros(), &timer, COMMS_SLAVE_PERIOD))
 		return;
 
 	if (!comms_485_slave(&bstate[BOARD], &bcmd[BOARD], cmd_mode)) {
@@ -153,6 +170,11 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, uint8_t
 #endif
 }
 
+/*
+ * Initiallize data, call initialization functions.
+ * Call board communications, sensor interface, and valve interface functions in
+ * a loop.
+ */
 int main(void)
 {
 	struct board_state_ bstate[3];

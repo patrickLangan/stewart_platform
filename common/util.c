@@ -2,7 +2,7 @@
 #include <limits.h>
 
 /* Compute time delta, accounting for rollover in t2 */
-uint32_t time_delta_us(uint32_t t2, uint32_t t1)
+uint32_t time_delta(uint32_t t2, uint32_t t1)
 {
 	if (t2 > t1)
 		return t2 - t1;
@@ -10,11 +10,12 @@ uint32_t time_delta_us(uint32_t t2, uint32_t t1)
 		return t2 + (UINT_MAX - t1);
 }
 
-int limit_frequency_us(uint32_t time, uint32_t *last_time, uint32_t period)
+/* Return 0 if "period" time units have passed */
+int limit_frequency(uint32_t time, uint32_t *last_time, uint32_t period)
 {
 	uint32_t dt;
 
-	dt = time_delta_us(time, *last_time);
+	dt = time_delta(time, *last_time);
 	if (dt < period)
 		return 1;
 	*last_time = time;
@@ -22,6 +23,7 @@ int limit_frequency_us(uint32_t time, uint32_t *last_time, uint32_t period)
 	return 0;
 }
 
+/* Enforce min <= val <= max */
 int ilimit(int val, int min, int max)
 {
 	if (val > max)

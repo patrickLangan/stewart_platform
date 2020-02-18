@@ -61,6 +61,10 @@ double time_diff(struct timespec t2, struct timespec t1)
 	return ((double)t2.tv_sec + (double)t2.tv_nsec / 1e9) - ((double)t1.tv_sec + (double)t1.tv_nsec / 1e9);
 }
 
+/*
+ * Re-package cylinder data into a more convenient format for board interface
+ * (bcmd) as opposed to HMI interface (cyl).
+ */
 void pack_board_cmd(struct cyl_ *cyl, struct board_cmd_ *bcmd)
 {
 	int box = 0;
@@ -97,21 +101,23 @@ void unpack_board_state(struct cyl_ *cyl, struct board_state_ *bstate)
 	}
 }
 
-void mvprint_colorf(int y, int x, const char *format, float val, int color)
+/* Print string with ncurses color formatting */
+void mvprint_colorf(int y, int x, const char *format, float val, int pair)
 {
-	if (color) {
-		attron(COLOR_PAIR(1));
+	if (pair) {
+		attron(COLOR_PAIR(pair));
 		mvprintw(y, x, format, val);
-		attroff(COLOR_PAIR(1));
+		attroff(COLOR_PAIR(pair));
 		return;
 	}
 	mvprintw(y, x, format, val);
 }
 
-void print_DCV(int y, int x, enum DCV_pos_ pos, int color)
+/* Print out Directional Control Valve (DCV) enum */
+void print_DCV(int y, int x, enum DCV_pos_ pos, int pair)
 {
-	if (color)
-		attron(COLOR_PAIR(1));
+	if (pair)
+		attron(COLOR_PAIR(pair));
 
 	switch (pos) {
 	case DCV_RETRACT:
@@ -124,8 +130,8 @@ void print_DCV(int y, int x, enum DCV_pos_ pos, int color)
 		mvprintw(y, x, "  EXT");
 	}
 
-	if (color)
-		attroff(COLOR_PAIR(1));
+	if (pair)
+		attroff(COLOR_PAIR(pair));
 }
 
 void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_cmd, int edit, int curs_mode)
@@ -148,6 +154,11 @@ void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_
 	print_DCV(y + 7, x + 7, cyl[index].DCV, 0);
 }
 
+/*
+ * Set the variable pointed to by "cmd".  The utility of this interface is to
+ * allow for the same function call regardless of type (int or float) of the
+ * underlying data.
+ */
 void cmd_set(struct cmd_adj_ cmd, union flin val)
 {
 	switch (cmd.type) {
@@ -159,6 +170,9 @@ void cmd_set(struct cmd_adj_ cmd, union flin val)
 	}
 }
 
+/*
+ * Increment or decrement the variable pointed to by "cmd".
+ */
 void cmd_adj(struct cmd_adj_ cmd, int sign)
 {
 	switch (cmd.type) {
@@ -170,6 +184,14 @@ void cmd_adj(struct cmd_adj_ cmd, int sign)
 	}
 }
 
+/*
+ * Thread to manage keyboard input operations:
+ * 	* Select which cylinder(s) (one or all) are being commanded.
+ *	* Select the command type:
+ *		* closed-loop cylinder length setpoint
+ *		* manual valve command: stepper-valve1,2 or DCV
+ *	* E-Stop
+ */
 void *input_thread(void *data_)
 {
 	struct data_ *data;
@@ -294,6 +316,10 @@ void *input_thread(void *data_)
 	}
 }
 
+/*
+ * Initiallize data, call initialization functions.
+ * Draw screen and handle off-board microcontroller I/O in a loop.
+ */
 int main(void)
 {
 	struct cyl_ cyl[6];
