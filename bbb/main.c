@@ -247,6 +247,7 @@ void *input_thread(void *data_)
 					cmd_set(cmd[i][j], cmd_zero);
 			data->edit = 0;
 			data->estop = 1;
+			data->cmd_mode = CMD_VALVE;
 			curs_set(0);
 			pthread_mutex_unlock(&data->mutex);
 			pthread_exit(&ret);
@@ -342,6 +343,8 @@ int main(void)
 	memset(bcmd, 0, 3 * sizeof(*bcmd));
 	memset(&data, 0, sizeof(data));
 
+	data.cmd_mode = CMD_VALVE;
+
 	if (comms_UART_init())
 		return 1;
 
@@ -407,6 +410,15 @@ int main(void)
 		mvprintw(5, 104, "cmd-all");
 		mvprintw(6, 104, "cmd-all");
 		mvprintw(7, 104, "cmd-all");
+
+		mvprintw(9, 20, "cmd-mode: ");
+		switch (cmd_mode) {
+		case CMD_LENGTH:
+			printw("LENGTH");
+			break;
+		case CMD_VALVE:
+			printw("VALVE");
+		}
 
 		move(9, 50);
 		if (data.estop) {
