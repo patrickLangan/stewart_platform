@@ -5,9 +5,9 @@
 #include "WProgram.h"
 #include "pins_arduino.h"
 
-#define STP_OVER 4
+#define STP_OVER 40
 
-#define STP_PERIOD_2 1210  /* 1.21s full travel, experimentally determined */
+#define STP_PERIOD_2 1500 /* 1.5s full travel */
 #define DCV_PERIOD 333333 /* 3 cycles/sec -> 0.333s per cycle */
 
 const int pin_SSR[4] = {35, 36, 27, 28};
