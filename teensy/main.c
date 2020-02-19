@@ -224,7 +224,7 @@ int main(void)
 					bstate[BOARD].length_dot[i],
 					bstate[BOARD].pressure[i * 2 + 0],
 					bstate[BOARD].pressure[i * 2 + 1],
-					bcmd[BOARD].length[0],
+					bcmd[BOARD].length[i],
 					micros());
 
 				valve_control_input(&valve[i * 2 + 0],
