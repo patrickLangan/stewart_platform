@@ -47,7 +47,8 @@ struct data_ {
 	int curs_x, curs_y;
 	int estop;
 	int motion_file;
-	int motion_file_n;
+	int argc;
+	char **argv;
 	WINDOW *win;
 	pthread_mutex_t mutex;
 };
@@ -157,6 +158,92 @@ void print_cylinder(int y, int x, int index, struct cyl_ *cyl, struct cyl_ *cyl_
 	print_DCV(y + 7, x + 7, cyl[index].DCV, 0);
 }
 
+void *motion_thread(void *data_)
+{
+	struct data_ *data;
+
+	int last_motion_file;
+	int motion_file = 0;
+
+	FILE *file;
+	float f;
+
+	struct timespec loop_time;
+	struct timespec start_time;
+	int cur_time = 0;
+	int last_time;
+	int prog_time;
+
+	int step_num;
+	int time_step;
+	int loop_end;
+	int loop_start;
+
+	float set_length[6] = {0};
+
+	int i = 0;
+	int j;
+
+	data = (struct data_ *)data_;
+
+	while (1) {
+		last_motion_file = motion_file;
+
+		pthread_mutex_lock(&data->mutex);
+		motion_file = data->motion_file;
+		pthread_mutex_unlock(&data->mutex);
+
+		if (!motion_file) {
+			usleep(100000);
+			continue;
+		}
+
+		if (motion_file != last_motion_file) {
+			file = fopen(data->argv[motion_file], "r");
+
+			if (!file) {
+				fprintf(stderr, "Failed to open input file: %s\n", data->argv[motion_file]);
+				sleep(1);
+				motion_file = 0;
+				continue;
+			}
+
+			fread(&f, sizeof(float), 1, file);
+			step_num = (int)f;
+			fread (&f, sizeof(float), 1, file);
+			time_step = (int)f * 1000;
+			fread(&f, sizeof(float), 1, file);
+			loop_end = (int)f + 1;
+			fread(&f, sizeof(float), 1, file);
+			loop_start = (int)f;
+		}
+
+		if (i >= loop_end) {
+			fseek(file, (4 + 6 * loop_start) * sizeof(float), SEEK_SET);
+			clock_gettime(CLOCK_REALTIME, &start_time);
+			i = loop_start;
+			cur_time = 0;
+			prog_time = time_step;
+		}
+
+		last_time = cur_time;
+		clock_gettime(CLOCK_REALTIME, &loop_time);
+		cur_time = (loop_time.tv_sec - start_time.tv_sec) * 1000000000 + (loop_time.tv_nsec - start_time.tv_nsec) / 1000;
+		if (cur_time > prog_time) {
+			for (j = 0; j < 6; j++)
+				fread(&set_length[j], sizeof(float), 1, file);
+
+			pthread_mutex_lock(&data->mutex);
+			for (j = 0; j < 6; j++)
+				data->cyl_cmd[i].length = set_length[j];
+			pthread_mutex_unlock(&data->mutex);
+
+			prog_time += time_step;
+			i++;
+		}
+	}
+}
+
 /*
  * Set the variable pointed to by "cmd".  The utility of this interface is to
  * allow for the same function call regardless of type (int or float) of the
@@ -254,7 +341,7 @@ void *input_thread(void *data_)
 				int n;
 				read_n_buff[read_n] = '\0';
 				n = atoi(read_n_buff);
-				if (n < data->motion_file_n) {
+				if (n < data->argc) {
 					pthread_mutex_lock(&data->mutex);
 					data->motion_file = n;
 					pthread_mutex_unlock(&data->mutex);
@@ -361,9 +448,10 @@ int main(int argc, char **argv)
 	struct data_ data;
 	uint8_t cmd_mode;
 	int motion_file;
+	pthread_t motion_thread_;
 	pthread_t input_thread_;
 	int got_startb = 0;
-	static struct timespec last_time;
+	struct timespec last_time;
 	struct timespec cur_time;
 	int i, j;
 
@@ -377,7 +465,8 @@ int main(int argc, char **argv)
 	memset(&data, 0, sizeof(data));
 
 	data.cmd_mode = CMD_VALVE;
-	data.motion_file_n = argc;
+	data.argc = argc;
+	data.argv = argv;
 
 	if (comms_UART_init())
 		return 1;
@@ -387,9 +476,14 @@ int main(int argc, char **argv)
 		return 1; 
 	} 
 
+	if (pthread_create(&motion_thread_, NULL, motion_thread, &data)) {
+		fprintf(stderr, "pthread_create() failed.\n");
+		return 1;
+	}
+
 	if (pthread_create(&input_thread_, NULL, input_thread, &data)) {
-		fprintf(stderr, "pthread_create() failed.\n"); 
-		return 1; 
+		fprintf(stderr, "pthread_create() failed.\n");
+		return 1;
 	}
 
 	if (!(data.win = initscr())) {
