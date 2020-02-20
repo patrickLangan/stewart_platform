@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -45,6 +46,8 @@ struct data_ {
 	int curs_cyl, curs_mode;
 	int curs_x, curs_y;
 	int estop;
+	int motion_file;
+	int motion_file_n;
 	WINDOW *win;
 	pthread_mutex_t mutex;
 };
@@ -186,10 +189,11 @@ void cmd_adj(struct cmd_adj_ cmd, int sign)
 
 /*
  * Thread to manage keyboard input operations:
- * 	* Select which cylinder(s) (one or all) are being commanded.
- *	* Select the command type:
+ * 	* Select a command type, and which cylinder(s) (one or all) are being
+ * 	  commanded.
  *		* closed-loop cylinder length setpoint
  *		* manual valve command: stepper-valve1,2 or DCV
+ * 	* Select a motion file
  *	* E-Stop
  */
 void *input_thread(void *data_)
@@ -199,6 +203,9 @@ void *input_thread(void *data_)
 	const int curs_offy[] = {2, 5, 6, 7};
 	struct cmd_adj_ cmd[6][4];
 	union flin cmd_zero = {0};
+	int reading_n = 0;
+	int read_n = 0;
+	char read_n_buff[255];
 	int i, j;
 	int ret = 0;
 
@@ -238,6 +245,26 @@ void *input_thread(void *data_)
 
 		c = getch();
 
+		if (reading_n) {
+			if (c >= '0' && c <= '9') {
+				read_n_buff[read_n++] = c;
+				continue;
+			}
+			if (c == 10 && read_n) {
+				int n;
+				read_n_buff[read_n] = '\0';
+				n = atoi(read_n_buff);
+				if (n < data->motion_file_n) {
+					pthread_mutex_lock(&data->mutex);
+					data->motion_file = n;
+					pthread_mutex_unlock(&data->mutex);
+				}
+			}
+			read_n = 0;
+			reading_n = 0;
+			continue;
+		}
+
 		pthread_mutex_lock(&data->mutex);
 
 		switch (c) {
@@ -248,6 +275,7 @@ void *input_thread(void *data_)
 			data->edit = 0;
 			data->estop = 1;
 			data->cmd_mode = CMD_VALVE;
+			data->motion_file = 0;
 			curs_set(0);
 			pthread_mutex_unlock(&data->mutex);
 			pthread_exit(&ret);
@@ -295,6 +323,9 @@ void *input_thread(void *data_)
 				else
 					data->curs_mode = 0;
 			}
+			break;
+		case 'r':
+			reading_n = 1;
 		}
 
 		if (key_updown) {
@@ -304,6 +335,7 @@ void *input_thread(void *data_)
 				else
 					for (i = 0; i < 6; i++)
 						cmd_adj(cmd[i][data->curs_mode], key_updown);
+				data->motion_file = 0;
 				if (!data->curs_mode)
 					data->cmd_mode = CMD_LENGTH;
 				else
@@ -321,13 +353,14 @@ void *input_thread(void *data_)
  * Initiallize data, call initialization functions.
  * Draw screen and handle off-board microcontroller I/O in a loop.
  */
-int main(void)
+int main(int argc, char **argv)
 {
 	struct cyl_ cyl[6];
 	struct board_cmd_ bcmd[3];
 	struct board_state_ bstate[3];
 	struct data_ data;
 	uint8_t cmd_mode;
+	int motion_file;
 	pthread_t input_thread_;
 	int got_startb = 0;
 	static struct timespec last_time;
@@ -344,6 +377,7 @@ int main(void)
 	memset(&data, 0, sizeof(data));
 
 	data.cmd_mode = CMD_VALVE;
+	data.motion_file_n = argc;
 
 	if (comms_UART_init())
 		return 1;
@@ -386,6 +420,7 @@ int main(void)
 		pthread_mutex_lock(&data.mutex);
 		pack_board_cmd(data.cyl_cmd, bcmd);
 		cmd_mode = data.cmd_mode;
+		motion_file = data.motion_file;
 		pthread_mutex_unlock(&data.mutex);
 		comms_UART_send_cmd(bcmd, cmd_mode);
 
@@ -411,16 +446,15 @@ int main(void)
 		mvprintw(6, 104, "cmd-all");
 		mvprintw(7, 104, "cmd-all");
 
-		mvprintw(9, 20, "cmd-mode: ");
-		switch (cmd_mode) {
-		case CMD_LENGTH:
-			printw("LENGTH");
-			break;
-		case CMD_VALVE:
-			printw("VALVE");
+		mvprintw(9, 0, "Motion files:");
+		for (i = 1; i < argc; i++) {
+			if (i == motion_file)
+				attron(COLOR_PAIR(1));
+			mvprintw(9 + i, 0, "%3d %s", i, argv[i]);
+			if (i == motion_file)
+				attroff(COLOR_PAIR(1));
 		}
 
-		move(9, 50);
 		if (data.estop) {
 			static int pair = 2;
 			if (time_diff(cur_time, last_time) > 0.25) {
@@ -428,11 +462,21 @@ int main(void)
 				pair = (pair == 2) ? 3 : 2;
 			}
 			attron(COLOR_PAIR(pair));
-			printw("E-STOP - restart required");
+			mvprintw(9, 47, "E-STOP - restart required");
 			attroff(COLOR_PAIR(pair));
 		} else {
-			printw("E-STOP (SPACE BAR)");
+			attron(COLOR_PAIR(2));
+			mvprintw(9, 50, "E-STOP (SPACE BAR)");
+			attroff(COLOR_PAIR(2));
 		}
+
+		mvprintw(9, 80, "cmd-mode: ");
+		if (motion_file)
+			printw("MOTION FILE");
+		else if (cmd_mode == CMD_LENGTH)
+			printw("LENGTH");
+		else if (cmd_mode == CMD_VALVE)
+			printw("VALVE");
 
 		pthread_mutex_lock(&data.mutex);
 		move(data.curs_y, data.curs_x);

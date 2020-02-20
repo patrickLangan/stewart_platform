@@ -2,9 +2,9 @@ teensy/teensy3/*
 teensy/tools/*
 teensy/SPI/*
 teensy/i2c_t3/*
+bbb/hmi
 *.o
 *.d
 *.elf
 *.hex
-*.out
 
