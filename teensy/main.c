@@ -185,8 +185,8 @@ void comms_advance(struct board_state_ *bstate, struct board_cmd_ *bcmd, uint8_t
 
 /*
  * Initiallize data, call initialization functions.
- * Call board communications, sensor interface, and valve interface functions in
- * a loop.
+ * Call board communications, sensor interface, control algorithm, and valve
+ * interface functions in a loop.
  */
 int main(void)
 {
