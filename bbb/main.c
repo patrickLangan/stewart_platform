@@ -165,7 +165,7 @@ void *motion_thread(void *data_)
 	int last_motion_file;
 	int motion_file = 0;
 
-	FILE *file;
+	FILE *file = NULL;
 	float f;
 
 	struct timespec loop_time;
@@ -199,6 +199,9 @@ void *motion_thread(void *data_)
 		}
 
 		if (motion_file != last_motion_file) {
+			if (file)
+				fclose(file);
+
 			file = fopen(data->argv[motion_file], "r");
 
 			if (!file) {
@@ -216,6 +219,8 @@ void *motion_thread(void *data_)
 			loop_end = (int)f + 1;
 			fread(&f, sizeof(float), 1, file);
 			loop_start = (int)f;
+
+			clock_gettime(CLOCK_REALTIME, &start_time);
 		}
 
 		if (i >= loop_end) {
@@ -228,14 +233,14 @@ void *motion_thread(void *data_)
 
 		last_time = cur_time;
 		clock_gettime(CLOCK_REALTIME, &loop_time);
-		cur_time = (loop_time.tv_sec - start_time.tv_sec) * 1000000000 + (loop_time.tv_nsec - start_time.tv_nsec) / 1000;
+		cur_time = (loop_time.tv_sec - start_time.tv_sec) * 1000000 + (loop_time.tv_nsec - start_time.tv_nsec) / 1000;
 		if (cur_time > prog_time) {
 			for (j = 0; j < 6; j++)
 				fread(&set_length[j], sizeof(float), 1, file);
 
 			pthread_mutex_lock(&data->mutex);
 			for (j = 0; j < 6; j++)
-				data->cyl_cmd[i].length = set_length[j];
+				data->cyl_cmd[j].length = set_length[j] * IN_TO_M;
 			pthread_mutex_unlock(&data->mutex);
 
 			prog_time += time_step;
@@ -344,6 +349,7 @@ void *input_thread(void *data_)
 				if (n < data->argc) {
 					pthread_mutex_lock(&data->mutex);
 					data->motion_file = n;
+					data->cmd_mode = CMD_LENGTH;
 					pthread_mutex_unlock(&data->mutex);
 				}
 			}
